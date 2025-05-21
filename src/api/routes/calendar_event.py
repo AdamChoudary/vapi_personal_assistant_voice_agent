@@ -2,20 +2,22 @@ import logging
 from typing import Annotated, AsyncGenerator
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_db, get_validated_tool_call
+from src.api.dependencies import get_validated_tool_call, get_calendar_event_repository
 from src.models.domain.calendar_event import CalendarEventCreate, CalendarEventId
 from src.models.domain.tool import ValidatedToolCall
 from src.models.domain.response import ToolResponse
+from src.repositories.calendar_event_repository import CalendarEventRepository
 from src.services.calendar_event_service import CalendarEventService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["calendar_event"])
 
-async def get_calendar_service(db: Annotated[Session, Depends(get_db)]) -> AsyncGenerator[CalendarEventService, None]:
-    yield CalendarEventService(db)
+async def get_calendar_service(
+    repository: Annotated[CalendarEventRepository, Depends(get_calendar_event_repository)]
+) -> AsyncGenerator[CalendarEventService, None]:
+    yield CalendarEventService(repository)
 
 @router.post('/add_calendar_entry/', response_model=ToolResponse)
 async def add_calendar_entry(

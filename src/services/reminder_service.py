@@ -1,9 +1,6 @@
 import logging
 from typing import Dict, List
 
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
-
 from src.models.entities.reminder import Reminder
 from src.models.domain.reminder import ReminderCreate, ReminderResponse, ReminderId
 from src.repositories.reminder_repository import ReminderRepository
@@ -12,20 +9,8 @@ from src.utils.helpers import handle_service_error
 logger = logging.getLogger(__name__)
 
 class ReminderService:
-    def __init__(self, db: Session):
-        self.repository = ReminderRepository(db)
-
-    async def _get_reminder_by_id(self, reminder_id: int) -> Reminder:
-        try:
-            reminder = await self.repository.get_by_id(reminder_id)
-            
-            if not reminder:
-                logger.warning(f"Reminder with id {reminder_id} not found")
-                raise HTTPException(status_code=404, detail="Reminder not found")
-                
-            return reminder
-        except Exception as e:
-            handle_service_error(e, "reminder_service", "_get_reminder_by_id")
+    def __init__(self, repository: ReminderRepository):
+        self.repository = repository
 
     async def create_reminder(self, reminder_data: ReminderCreate) -> ReminderResponse:
         try:

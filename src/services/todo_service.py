@@ -1,8 +1,7 @@
 import logging
 from typing import List, Dict
 
-from sqlalchemy.orm import Session
-
+from fastapi import HTTPException
 from src.models.entities.todo import Todo
 from src.models.domain.todo import TodoCreate, TodoResponse, TodoId
 from src.repositories.todo_repository import TodoRepository
@@ -11,8 +10,8 @@ from src.utils.helpers import handle_service_error
 logger = logging.getLogger(__name__)
 
 class TodoService:
-    def __init__(self, db: Session):
-        self.repository = TodoRepository(db)
+    def __init__(self, repository: TodoRepository):
+        self.repository = repository
 
     async def create_todo(self, todo_data: TodoCreate) -> TodoResponse:
         try:
@@ -36,10 +35,18 @@ class TodoService:
     async def complete_todo(self, todo_id: TodoId) -> TodoResponse:
         try:
             todo = await self.repository.get_by_id(todo_id.id)
+
+            if not todo:
+                logger.warning(f"To-do with id {todo_id} not found")
+                raise HTTPException(status_code=404, detail="To-do not found")
+
+
             todo.completed = True
             updated_todo = await self.repository.save(todo)
 
             return TodoResponse.model_validate(updated_todo)
+        except HTTPException:
+            raise
         except Exception as e:
             handle_service_error(e, "todo_service", "complete_todo")
 

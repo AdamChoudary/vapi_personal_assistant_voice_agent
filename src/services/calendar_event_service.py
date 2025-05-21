@@ -1,8 +1,6 @@
 import logging
 from typing import List, Dict
 
-from sqlalchemy.orm import Session
-
 from src.models.entities.calendar_event import CalendarEvent
 from src.models.domain.calendar_event import CalendarEventCreate, CalendarEventResponse, CalendarEventId
 from src.repositories.calendar_event_repository import CalendarEventRepository
@@ -11,8 +9,8 @@ from src.utils.helpers import handle_service_error
 logger = logging.getLogger(__name__)
 
 class CalendarEventService:
-    def __init__(self, db: Session):
-        self.repository = CalendarEventRepository(db)
+    def __init__(self, repository: CalendarEventRepository):
+        self.repository = repository
 
     async def create_event(self, event_data: CalendarEventCreate) -> CalendarEventResponse:
         try:

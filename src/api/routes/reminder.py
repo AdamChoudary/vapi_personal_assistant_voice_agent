@@ -2,20 +2,22 @@ import logging
 from typing import Annotated, AsyncGenerator
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_db, get_validated_tool_call
+from src.api.dependencies import get_validated_tool_call, get_reminder_repository
 from src.models.domain.reminder import ReminderCreate, ReminderId
 from src.models.domain.tool import ValidatedToolCall
 from src.models.domain.response import ToolResponse
+from src.repositories.reminder_repository import ReminderRepository
 from src.services.reminder_service import ReminderService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["reminder"])
 
-async def get_reminder_service(db: Annotated[Session, Depends(get_db)]) -> AsyncGenerator[ReminderService, None]:
-    yield ReminderService(db)
+async def get_reminder_service(
+    repository: Annotated[ReminderRepository, Depends(get_reminder_repository)]
+) -> AsyncGenerator[ReminderService, None]:
+    yield ReminderService(repository)
 
 @router.post('/add_reminder/', response_model=ToolResponse)
 async def add_reminder(
