@@ -9,6 +9,14 @@
 A FastAPI-based backend service for a personal assistant voice agent integrated with Vapi AI. 
 This project demonstrates how to build a structured API that handles todo lists, reminders, and calendar events through voice commands processed by AI.
 
+
+
+
+https://github.com/user-attachments/assets/56214fbe-6429-4d97-9695-ecccc34d0a71
+
+
+
+
 ## 🌟 Features
 
 - **📝 Todo Management**: Create, list, complete, and delete todo items
