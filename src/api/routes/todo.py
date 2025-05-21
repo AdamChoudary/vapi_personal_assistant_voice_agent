@@ -2,20 +2,22 @@ import logging
 from typing import Annotated, AsyncGenerator
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_db, get_validated_tool_call
+from src.api.dependencies import get_validated_tool_call, get_todo_repository
 from src.models.domain.todo import TodoCreate, TodoId
 from src.models.domain.tool import ValidatedToolCall
 from src.models.domain.response import ToolResponse
+from src.repositories.todo_repository import TodoRepository
 from src.services.todo_service import TodoService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["todo"])
 
-async def get_todo_service(db: Annotated[Session, Depends(get_db)]) -> AsyncGenerator[TodoService, None]:
-    yield TodoService(db)
+async def get_todo_service(
+    repository: Annotated[TodoRepository, Depends(get_todo_repository)]
+) -> AsyncGenerator[TodoService, None]:
+    yield TodoService(repository)
 
 @router.post('/create_todo/', response_model=ToolResponse)
 async def create_todo(
