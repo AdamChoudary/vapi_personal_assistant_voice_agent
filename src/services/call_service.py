@@ -1,19 +1,13 @@
 import logging
 import requests
-from pydantic_settings import BaseSettings
+
 from fastapi import HTTPException
 
+from src.config.settings import VapiSettings
 from src.models.domain.call import CallRequest, CallResponse
 from src.utils.helpers import handle_service_error
 
 logger = logging.getLogger(__name__)
-
-class VapiSettings(BaseSettings):
-    vapi_api_key: str | None = None
-    vapi_api_url: str = "https://api.vapi.ai"
-    
-    class Config:
-        env_file = ".env"
 
 class CallService:
     def __init__(self):
