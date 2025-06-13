@@ -98,3 +98,5 @@ This service is designed to work with Vapi AI's voice assistant platform. The in
 - **Uvicorn**: ASGI server for running the application
 - **SQLite**: Lightweight disk-based database
 - **Requests**: HTTP library for making API calls to Vapi
+
+Developed by [extrawest](https://extrawest.com/). Software development company
