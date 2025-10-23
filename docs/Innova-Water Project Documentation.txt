@@ -1,0 +1,82 @@
+﻿Fontis Project Documentation
+
+
+
+
+Initial Use Cases
+Inbound Calls
+New Customer Sales
+Answer questions about products and services
+Provide pricing information
+Explain delivery schedules and how delivery works
+If customer wants to sign up:
+Send onboarding contract via JotForm
+Guide customer through next steps
+Existing Customers
+The AI can provide:
+Next delivery date
+Total account balance (open)
+Including invoice detail for open invoices
+Payment methods on file
+Card/account type, last 4 digits
+Account status
+Past due / On hold
+Last payment amount
+Products on open invoices
+Payment issues
+Inform customer if their payment declined (via automated transaction report, not API)
+Notify customer if their card is expiring and provide expiration date
+Outbound Calls & SMS
+Declined Payments
+Contact customers flagged by automated transaction report
+Inform customer of declined payment
+Advise to update payment online
+If customer needs assistance, offer transfer to live agent
+Collections Calls
+Contact past due accounts with similar flow to declined payments
+Communicate outstanding balance and payment options
+Delivery Reminders
+Identify customers scheduled for delivery on a given date
+Call or text reminder before delivery
+If customer is past due or on hold:
+Inform them delivery will not occur due to account status
+Provide next steps to resolve
+ Integration Notes:
+Middleware + RestAPI will be the main data source.
+Declined payments are available only through automated transaction reports (not API).
+Contracts sent via JotForm integration.
+
+
+CRM-Driven Questions
+When is my next delivery scheduled?
+(Pull route & date from delivery schedule table).
+How many bottles/products am I set to receive?
+(Standing order / active order lookup).
+What products or equipment are currently on my account?
+(Active product list + equipment rentals).
+What are my account charges this month and what do they cover?
+(Invoice line items / itemized charges).
+What is my account balance or last payment?
+(AR balance + recent payment history).
+Did my recent order change go through?
+(Check order adjustments vs. pending deliveries).
+When will equipment be picked up or delivered?
+(Work order/dispatch status for cooler swaps, pickups).
+What pricing applies to my account (per bottle, cooler fee, delivery fee)?
+(Rate plan tied to account, not generic published rates).
+Has my payment method expired / been declined?
+(Billing method status — no card numbers, just active/expired/failed).
+Who is my assigned driver or CSR rep?
+(Route/rep assignment field in account).
+
+
+Credentials:
+
+
+Existing customer login to update or make payment: 
+
+
+Innova API Key: fk_XzaL3iEikKvSjPuhbk7NBbGMYoSMVeQHaN9jpq0d9vtUAn8rueZNVwluILy3 (Highlight to see)
+
+
+API docs:Upon request

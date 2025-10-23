@@ -1,5 +1,5 @@
 # Python
-__pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 *.so
@@ -29,7 +29,6 @@ env/
 # Environment Variables
 .env
 .env.*
-!.env.production
 !.env.example
 
 # IDEs
@@ -50,17 +49,25 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+
+# Node modules (for Vapi SDK)
+node_modules/
+
+# Cloudflare tunnel
+cloudflared.exe
+
+# Lock files
+uv.lock
+package-lock.json
+
 # Build artifacts
 *.log
-.mypy_cache/
-.ruff_cache/
-
-# Deployment
-cloudflared.exe
-*.exe
-
-# Node (if needed for local Vapi SDK testing)
-node_modules/
-package-lock.json
-*.bundle.js
 
