@@ -1,0 +1,551 @@
+{
+  "name": "Fontis Water AI Assistant",
+  "transcriber": {
+    "provider": "deepgram",
+    "model": "nova-2",
+    "language": "en-US",
+    "keywords": [
+      "Fontis",
+      "fontis water",
+      "account number",
+      "delivery",
+      "invoice"
+    ]
+  },
+  "model": {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "temperature": 0.7,
+    "maxTokens": 300,
+    "emotionRecognitionEnabled": true,
+    "messages": [
+      {
+        "role": "system",
+        "content": "See vapi_system_prompt.md - Paste the full system prompt content here in Vapi dashboard"
+      }
+    ]
+  },
+  "voice": {
+    "provider": "11labs",
+    "voiceId": "21m00Tcm4TlvDq8ikWAM",
+    "stability": 0.5,
+    "similarityBoost": 0.75,
+    "optimizeStreamingLatency": 3,
+    "model": "eleven_turbo_v2"
+  },
+  "firstMessage": "Thank you for calling Fontis Water. May I have your service address to pull up your account?",
+  "voicemailMessage": "Thank you for calling Fontis Water. Our customer service team is currently assisting other customers. Please visit fontiswater.com to manage your account, or call back during business hours Monday through Friday, 8 AM to 5 PM Eastern Time. Thank you!",
+  "endCallMessage": "Thank you for calling Fontis Water. Have a great day!",
+  "endCallPhrases": [
+    "goodbye",
+    "that's all",
+    "that's everything",
+    "nothing else",
+    "no thanks"
+  ],
+  "recordingEnabled": true,
+  "hipaaEnabled": false,
+  "clientMessages": [
+    "transcript",
+    "hang",
+    "function-call",
+    "speech-update",
+    "metadata",
+    "conversation-update"
+  ],
+  "serverMessages": [
+    "end-of-call-report",
+    "status-update",
+    "hang",
+    "function-call"
+  ],
+  "silenceTimeoutSeconds": 30,
+  "responseDelaySeconds": 0.8,
+  "interruptionsEnabled": true,
+  "numWordsToInterruptAssistant": 2,
+  "maxDurationSeconds": 600,
+  "backgroundSound": "off",
+  "backchannelingEnabled": true,
+  "backgroundDenoisingEnabled": true,
+  "modelOutputInMessagesEnabled": true,
+  "transportConfigurations": [
+    {
+      "provider": "twilio",
+      "timeout": 60,
+      "record": true
+    }
+  ],
+  "serverUrl": "https://your-app-name.fly.dev/api/vapi/webhooks",
+  "serverUrlSecret": "{{VAPI_WEBHOOK_SECRET}}",
+  "functions": [
+    {
+      "name": "customer_search",
+      "description": "Search for customers by name, address, phone, or account number. Use this as the FIRST step in every conversation to identify the customer. Returns multiple matches if found.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "lookup": {
+            "type": "string",
+            "description": "Customer name, service address, phone number, or account number to search for"
+          }
+        },
+        "required": ["lookup"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/customer/search",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "customer_details",
+      "description": "Get detailed customer information by account number. Use when customer provides their account number directly, as an alternative to customer_search.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          }
+        },
+        "required": ["customerId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/customer/details",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "finance_info",
+      "description": "Get combined financial and delivery information for a customer. Returns current balance, last payment, next delivery date, and equipment. Use for general account inquiries.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID (from customer_search results)"
+          }
+        },
+        "required": ["customerId", "deliveryId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/customer/finance-info",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "delivery_stops",
+      "description": "Get all delivery locations for a customer. Use to obtain deliveryId which is required for most other API calls. Most customers have only one stop.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          }
+        },
+        "required": ["customerId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/delivery/stops",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "next_delivery",
+      "description": "Get the next scheduled delivery date for a customer. Use when customer asks 'When is my next delivery?'",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID"
+          },
+          "daysAhead": {
+            "type": "integer",
+            "description": "Number of days ahead to check (default: 45)",
+            "default": 45
+          }
+        },
+        "required": ["customerId", "deliveryId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/delivery/next-scheduled",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "account_balance",
+      "description": "Get customer account balance summary (total due, past due, on hold status). Use when customer asks 'What do I owe?'",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          }
+        },
+        "required": ["customerId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/billing/balance",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "invoice_history",
+      "description": "Get invoice and payment history for a customer. Returns both invoices and payments. Use when customer asks about recent charges or payment history.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID"
+          },
+          "numberOfMonths": {
+            "type": "integer",
+            "description": "Number of months of history to retrieve (default: 12)",
+            "default": 12
+          }
+        },
+        "required": ["customerId", "deliveryId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/billing/invoice-history",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "invoice_detail",
+      "description": "Get detailed line items for a specific invoice. Use when customer wants to know what's included on a specific invoice.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "invoiceKey": {
+            "type": "string",
+            "description": "Invoice key (from invoice_history results)"
+          },
+          "invoiceDate": {
+            "type": "string",
+            "description": "Invoice date in YYYY-MM-DD format"
+          }
+        },
+        "required": ["customerId", "invoiceKey", "invoiceDate"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/billing/invoice-detail",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "payment_methods",
+      "description": "Get customer's stored payment methods (masked). Returns card type and last 4 digits only. Use when customer asks 'What card do you have on file?'",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          }
+        },
+        "required": ["customerId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/billing/payment-methods",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "products_catalog",
+      "description": "Get available products and pricing for a customer's location. Use when customer asks 'How much is...' or 'What products are available?'",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID"
+          },
+          "postalCode": {
+            "type": "string",
+            "description": "Customer's postal code (for location-based pricing)"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional: Filter by product categories (e.g., 'Fontis Bottled Water')",
+            "default": []
+          }
+        },
+        "required": ["customerId", "deliveryId", "postalCode"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/billing/products",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "customer_contracts",
+      "description": "Get customer's service agreements and contract details. Use when customer asks about contract terms, renewal dates, or cancellation policy.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID"
+          }
+        },
+        "required": ["customerId", "deliveryId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/contracts/get-contracts",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "default_products",
+      "description": "Get standing order default products for a delivery stop. Shows what products and quantities are automatically delivered each time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID"
+          }
+        },
+        "required": ["customerId", "deliveryId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/delivery/default-products",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "last_delivery_orders",
+      "description": "Get recent off-route delivery orders. These are service tickets, not regular route deliveries. Use when customer asks about recent special orders.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID"
+          },
+          "numberOfOrders": {
+            "type": "integer",
+            "description": "Number of recent orders to retrieve (default: 5)",
+            "default": 5
+          }
+        },
+        "required": ["customerId", "deliveryId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/delivery/orders",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "delivery_frequencies",
+      "description": "Get available delivery frequency options. Use when customer wants to change delivery frequency.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/delivery/frequencies",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "orders_search",
+      "description": "Search for orders by ticket number, customer ID, or delivery ID. Use to find specific orders or check open orders.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Customer account number (optional)"
+          },
+          "deliveryId": {
+            "type": "string",
+            "description": "Delivery stop ID (optional)"
+          },
+          "ticketNumber": {
+            "type": "string",
+            "description": "Ticket number (optional)"
+          },
+          "onlyOpenOrders": {
+            "type": "boolean",
+            "description": "Return only open/unposted orders (default: true)",
+            "default": true
+          }
+        }
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/delivery/orders/search",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "route_stops",
+      "description": "Get all stops for a specific route and date. Internal use for confirming route completion or investigating skipped deliveries.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "routeDate": {
+            "type": "string",
+            "description": "Route date in YYYY-MM-DD format"
+          },
+          "route": {
+            "type": "string",
+            "description": "Route code (e.g., '19')"
+          },
+          "accountNumber": {
+            "type": "string",
+            "description": "Optional: Filter to specific customer account"
+          }
+        },
+        "required": ["routeDate", "route"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/routes/stops",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "send_contract",
+      "description": "Send JotForm contract to a new customer's email for onboarding. Use when a new customer is ready to sign up for service.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customerEmail": {
+            "type": "string",
+            "description": "Customer's email address to send contract"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Customer's full name"
+          },
+          "serviceAddress": {
+            "type": "string",
+            "description": "Service address for new customer"
+          }
+        },
+        "required": ["customerEmail", "customerName", "serviceAddress"]
+      },
+      "async": true,
+      "url": "https://your-app-name.fly.dev/tools/onboarding/send-contract",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "name": "contract_status",
+      "description": "Check the status of a sent contract (pending, completed, etc). Use to follow up on contract signing status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "submissionId": {
+            "type": "string",
+            "description": "JotForm submission ID (from send_contract response)"
+          }
+        },
+        "required": ["submissionId"]
+      },
+      "async": false,
+      "url": "https://your-app-name.fly.dev/tools/onboarding/contract-status",
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{INTERNAL_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    }
+  ],
+  "analysisPlan": {
+    "summaryPrompt": "Summarize this customer service call in 2-3 sentences. Include the customer's name, reason for calling, and resolution.",
+    "structuredDataPrompt": "Extract: customer_name, account_number, reason_for_call, resolution_status, next_action_required, transfer_reason (if transferred)",
+    "successEvaluationPrompt": "Rate this call's success on a scale of 1-10. Consider: Was the customer's issue resolved? Was the information accurate? Was the tone professional and empathetic?",
+    "successEvaluationRubric": "1-3: Poor (customer frustrated, issue unresolved)\n4-6: Fair (partial resolution, multiple transfers)\n7-8: Good (issue resolved, professional)\n9-10: Excellent (first-call resolution, highly satisfied customer)"
+  }
+}

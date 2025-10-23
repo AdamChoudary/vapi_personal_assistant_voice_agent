@@ -1,102 +1,163 @@
-# 🤖 Vapi Personal Assistant Voice Agent
+# Fontis AI Voice Agent
 
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)]()
-[![Maintainer](https://img.shields.io/static/v1?label=Yevhen%20Ruban&message=Maintainer&color=red)](mailto:yevhen.ruban@extrawest.com)
-[![Ask Me Anything !](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)]()
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-![GitHub release](https://img.shields.io/badge/release-v1.0.0-blue)
+Production-ready FastAPI middleware connecting Vapi AI with Fontis Water API for automated customer service calls.
 
-A FastAPI-based backend service for a personal assistant voice agent integrated with Vapi AI. 
-This project demonstrates how to build a structured API that handles todo lists, reminders, and calendar events through voice commands processed by AI.
+## Features
 
+- ✅ **19 Production APIs**: 17 Fontis APIs + JotForm onboarding integration
+- ✅ **Complete Coverage**: Customer search, billing, delivery, contracts, routes, onboarding
+- ✅ **Secure Authentication**: API key protection on all endpoints
+- ✅ **Webhook Verification**: HMAC signature validation
+- ✅ **Production Ready**: Docker + Fly.io deployment
+- ✅ **Error Handling**: Retry logic, structured logging
+- ✅ **Type Safe**: Full Pydantic validation
 
+## Quick Start (Development)
 
-
-https://github.com/user-attachments/assets/56214fbe-6429-4d97-9695-ecccc34d0a71
-
-
-### Phone call demo
-
-
-
-
-https://github.com/user-attachments/assets/5859b32b-7c49-487b-84c7-7647eb0d860a
-
-
-
-
-## 🌟 Features
-
-- **📝 Todo Management**: Create, list, complete, and delete todo items
-- **⏰ Reminders**: Set and manage reminders with importance levels
-- **📅 Calendar**: Schedule and track events with start and end times
-- **📞 Call Initiation**: Trigger outbound calls via Vapi AI API
-- **🔄 Vapi AI Integration**: Process natural language commands into structured API calls
-- **🔧 Clean Architecture**: Follows best practices with proper separation of concerns
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.9+
-- Pip package manager
-- Vapi AI account and API key (for call functionality)
-
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/extrawest/vapi_personal_assistant_voice_agent.git
-cd vapi_personal_assistant_voice_agent
+# Install dependencies
+pip install -e .
+
+# Configure environment
+cp env.example .env
+# Edit .env with your credentials
+
+# Run development server
+python run.py
 ```
 
-2. Install dependencies:
+Server available at: `http://localhost:8000`
+
+## Production Deployment
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete Fly.io setup guide.
+
 ```bash
-pip install -r requirements.txt
+# Quick deploy
+fly launch
+fly secrets set FONTIS_API_KEY=xxx INTERNAL_API_KEY=xxx JOTFORM_API_KEY=xxx JOTFORM_FORM_ID=xxx
+fly deploy
 ```
 
-3. Set up environment variables:
+## Project Structure
+
+```
+src/
+├── main.py              # FastAPI app with middleware
+├── config.py            # Environment configuration
+├── api/
+│   ├── webhooks.py      # Vapi webhook handlers
+│   └── tools/           # Tool endpoints (19 production APIs)
+│       ├── customer.py  # Customer search, details, finance
+│       ├── billing.py   # Invoices, payments, products
+│       ├── delivery.py  # Schedules, orders, frequencies
+│       ├── contracts.py # Service agreements
+│       ├── routes.py    # Route stops
+│       └── onboarding.py # JotForm integration
+├── services/
+│   ├── fontis_client.py # Fontis API integration (17 endpoints)
+│   ├── vapi_client.py   # Vapi outbound calls
+│   └── jotform_client.py # JotForm contract generation
+├── core/
+│   ├── deps.py          # FastAPI dependencies
+│   ├── security.py      # Authentication
+│   └── exceptions.py    # Custom exceptions
+└── schemas/             # Pydantic models
+```
+
+## API Endpoints
+
+### Core
+
+- `GET /` - Service information
+- `GET /health` - Health check for monitoring
+- `GET /docs` - OpenAPI documentation (dev only)
+
+### Webhooks
+
+- `POST /webhooks/vapi` - Receive call events from Vapi
+
+### Tools (All require authentication)
+
+**Customer APIs** (3 endpoints)
+- `POST /tools/customer/search` - Search customers
+- `POST /tools/customer/details` - Get customer details
+- `POST /tools/customer/finance-info` - Combined finance & delivery info
+
+**Billing APIs** (6 endpoints)
+- `POST /tools/billing/balance` - Account balances
+- `POST /tools/billing/invoice-history` - Invoices and payments
+- `POST /tools/billing/invoice-detail` - Detailed invoice line items
+- `POST /tools/billing/payment-methods` - Payment methods on file
+- `POST /tools/billing/products` - Product catalog & pricing
+- `POST /tools/billing/add-credit-card` - Add payment method
+
+**Delivery APIs** (6 endpoints)
+- `POST /tools/delivery/stops` - Delivery locations
+- `POST /tools/delivery/next-scheduled` - Next delivery date
+- `POST /tools/delivery/default-products` - Standing orders
+- `POST /tools/delivery/orders` - Off-route delivery orders
+- `POST /tools/delivery/orders/search` - Search orders by ticket/customer
+- `GET /tools/delivery/frequencies` - Delivery frequency codes
+
+**Contracts & Routes** (2 endpoints)
+- `POST /tools/contracts/get-contracts` - Customer contracts
+- `POST /tools/routes/stops` - Route stops for specific date
+
+**Onboarding** (2 endpoints)
+- `POST /tools/onboarding/send-contract` - Send JotForm contract
+- `GET /tools/onboarding/contract-status/{id}` - Check submission status
+
+## Configuration
+
+Required environment variables:
+
 ```bash
-# Copy the example environment file
-cp src/.env.example .env
+# Fontis API (Required)
+FONTIS_API_KEY=fk_your_key_here
+FONTIS_BASE_URL=https://api.fontiswater.com/api/v1
 
-# Edit the .env file with your Vapi API key
-# Replace 'your_vapi_api_key_here' with your actual API key
+# Internal Security (Required)
+INTERNAL_API_KEY=your_32_char_minimum_api_key
+
+# JotForm (Required for onboarding)
+JOTFORM_API_KEY=your_jotform_api_key
+JOTFORM_FORM_ID=your_form_id
+
+# Vapi AI (Optional for outbound calls)
+VAPI_API_KEY=your_vapi_secret_key
+VAPI_PUBLIC_KEY=your_vapi_public_key
+VAPI_WEBHOOK_SECRET=your_webhook_secret
+
+# Application
+APP_ENV=development
+LOG_LEVEL=info
+CORS_ORIGINS=http://localhost:8000
 ```
 
-4. Run the application:
-```bash
-uvicorn src.main:app --reload
-```
+See `env.example` for complete configuration template.
 
-5. Access the API documentation:
-```
-http://localhost:8000/docs
-```
+## Documentation
 
-## 🔌 Vapi AI Integration
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide
+- **[CLIENT_REPORT.md](CLIENT_REPORT.md)** - Technical requirements explanation
+- **[docs/](docs/)** - API reference and requirements
 
-This service is designed to work with Vapi AI's voice assistant platform. The integration enables:
+## Security
 
-1. **Natural Language Processing**: Convert voice commands to structured API calls
-2. **Context Awareness**: Maintain conversation context for follow-up commands
-3. **Tool-Based Execution**: Execute specific functions based on user intent
-4. **Outbound Calls**: Initiate calls to customers using Vapi's telephony infrastructure
+- ✅ API key authentication on all tool endpoints
+- ✅ Webhook signature verification (HMAC-SHA256)
+- ✅ CORS restricted to Vapi servers only
+- ✅ Environment-based secrets management
+- ✅ PII data masking (payment methods)
+- ✅ Production/development environment separation
 
-### Example Voice Commands
+## Technology Stack
 
-- "Add a new todo to buy groceries"
-- "Remind me to call mom tomorrow at 5 PM"
-- "Schedule a meeting with the team on Friday from 2 to 3 PM"
-- "Call customer John at +1-202-555-0123"
-
-## 🛠️ Tech Stack
-
-- **FastAPI**: Modern, fast web framework for building APIs
-- **SQLAlchemy**: SQL toolkit and ORM for database operations
-- **Pydantic**: Data validation and settings management
-- **Uvicorn**: ASGI server for running the application
-- **SQLite**: Lightweight disk-based database
-- **Requests**: HTTP library for making API calls to Vapi
-
-Developed by [extrawest](https://extrawest.com/). Software development company
+- **Framework**: FastAPI 0.115+ (Python 3.11+)
+- **HTTP Client**: httpx (async, connection pooling)
+- **Validation**: Pydantic 2.9+
+- **Logging**: structlog (JSON structured logs)
+- **Retry Logic**: tenacity
+- **Deployment**: Docker + Fly.io
+- **AI Platform**: Vapi + Twilio
