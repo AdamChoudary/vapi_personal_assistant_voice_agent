@@ -160,10 +160,8 @@ async def handle_function_call(
             call_id=call_id
         )
         
-        return {
-            "success": True,
-            "result": result
-        }
+        # Return the result directly - VAPI expects the tool result, not wrapped
+        return result
         
     except FontisAPIError as e:
         logger.error(
@@ -172,9 +170,11 @@ async def handle_function_call(
             call_id=call_id,
             error=str(e)
         )
+        # Return error in format VAPI expects
         return {
             "success": False,
-            "error": "I'm having trouble accessing that information right now. Let me try again or connect you with someone who can help."
+            "message": "I'm having trouble accessing that information right now. Let me try again or connect you with someone who can help.",
+            "error": str(e)
         }
     
     except Exception as e:
@@ -185,9 +185,11 @@ async def handle_function_call(
             error=str(e),
             exc_info=True
         )
+        # Return error in format VAPI expects
         return {
             "success": False,
-            "error": "I encountered an unexpected issue. Let me connect you with a representative who can assist you."
+            "message": "I encountered an unexpected issue. Let me connect you with a representative who can assist you.",
+            "error": str(e)
         }
 
 
@@ -236,14 +238,6 @@ async def route_function_call(
         params = DefaultProductsTool(**parameters)
         return await default_products_handler(params, fontis)
     
-    elif function_name == "last_delivery_orders":
-        from src.schemas.tools import OffRouteOrdersTool
-        params = OffRouteOrdersTool(**parameters)
-        return await last_delivery_orders_handler(params, fontis)
-    
-    elif function_name == "delivery_frequencies":
-        return await delivery_frequencies_handler(fontis)
-    
     elif function_name == "orders_search":
         from src.schemas.tools import OrdersSearchTool
         params = OrdersSearchTool(**parameters)
@@ -270,7 +264,7 @@ async def route_function_call(
         params = BillingMethodsTool(**parameters)
         return await payment_methods_handler(params, fontis)
     
-    elif function_name == "products_catalog":
+    elif function_name == "products_catalog" or function_name == "products":
         from src.schemas.tools import ProductsTool
         params = ProductsTool(**parameters)
         return await products_catalog_handler(params, fontis)
@@ -325,9 +319,30 @@ async def customer_details_handler(params, fontis: FontisClient) -> dict:
 
 async def finance_info_handler(params, fontis: FontisClient) -> dict:
     """Handle finance_info function call."""
+    # If delivery_id not provided, get customer's primary delivery
+    delivery_id = params.delivery_id
+    if not delivery_id:
+        # Get customer details to find their delivery IDs
+        customer = await fontis.get_customer_details(
+            customer_id=params.customer_id,
+            include_inactive=False
+        )
+        if customer.get("success") and customer.get("data"):
+            # Try to get first delivery ID from customer data
+            deliveries = customer["data"].get("deliveries", [])
+            if deliveries:
+                delivery_id = deliveries[0].get("deliveryId")
+    
+    if not delivery_id:
+        return {
+            "success": False,
+            "message": "Unable to find delivery information for this customer. They may not have any active deliveries set up.",
+            "error": "No delivery ID available"
+        }
+    
     response = await fontis.get_customer_finance_info(
         customer_id=params.customer_id,
-        delivery_id=params.delivery_id
+        delivery_id=delivery_id
     )
     return response
 
@@ -358,22 +373,6 @@ async def default_products_handler(params, fontis: FontisClient) -> dict:
         customer_id=params.customer_id,
         delivery_id=params.delivery_id
     )
-    return response
-
-
-async def last_delivery_orders_handler(params, fontis: FontisClient) -> dict:
-    """Handle last_delivery_orders function call."""
-    response = await fontis.get_last_delivery_orders(
-        customer_id=params.customer_id,
-        delivery_id=params.delivery_id,
-        number_of_orders=params.number_of_orders
-    )
-    return response
-
-
-async def delivery_frequencies_handler(fontis: FontisClient) -> dict:
-    """Handle delivery_frequencies function call."""
-    response = await fontis.get_delivery_frequencies()
     return response
 
 

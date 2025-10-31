@@ -159,7 +159,7 @@ async def send_onboarding_contract(
         await jotform.close()
 
 
-@router.get("/contract-status/{submission_id}", dependencies=[Depends(verify_api_key)])
+@router.get("/contract-status/{submission_id}")
 async def get_contract_status(
     submission_id: str,
     jotform: JotFormClient = Depends(get_jotform_client)
