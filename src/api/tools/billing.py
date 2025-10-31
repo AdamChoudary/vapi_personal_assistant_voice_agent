@@ -7,8 +7,7 @@ from src.schemas.tools import (
     InvoiceHistoryTool,
     BillingMethodsTool,
     ProductsTool,
-    InvoiceDetailTool,
-    CreditCardVaultTool
+    InvoiceDetailTool
 )
 from src.services.fontis_client import FontisClient
 from src.core.exceptions import FontisAPIError
@@ -229,10 +228,28 @@ async def get_products(
     - Explain deposit products and bottle exchanges
     """
     try:
+        # Fontis API requires customer_id in URL path
+        # If only postal_code provided, use special "guest" customer
+        if not params.customer_id:
+            if params.postal_code:
+                # Use guest/prospect mode with postal code
+                customer_id = "GUEST"
+                delivery_id = ""
+                postal_code = params.postal_code
+            else:
+                return {
+                    "success": False,
+                    "message": "Either customer_id or postal_code must be provided to get products"
+                }
+        else:
+            customer_id = params.customer_id
+            delivery_id = params.delivery_id or ""
+            postal_code = params.postal_code or ""
+        
         response = await fontis.get_products(
-            customer_id=params.customer_id,
-            delivery_id=params.delivery_id,
-            postal_code=params.postal_code,
+            customer_id=customer_id,
+            delivery_id=delivery_id,
+            postal_code=postal_code,
             internet_only=params.internet_only,
             categories=params.categories,
             default_products=params.default_products,
@@ -332,86 +349,3 @@ async def get_invoice_detail(
     except FontisAPIError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.post("/add-credit-card", dependencies=[Depends(verify_api_key)])
-async def add_credit_card(
-    params: CreditCardVaultTool,
-    fontis: FontisClient = Depends(get_fontis_client)
-) -> dict:
-    """
-    Add and vault a credit card for a customer.
-    
-    Fontis Endpoint: POST /api/v1/customers/{customerId}/credit-cards
-    Method: CreditCardVaultAdd
-    
-    Purpose:
-    Add and vault a new credit card for recurring or one-time payments.
-    Stores card securely in payment vault and can set as autopay method.
-    
-    Behavior:
-    - Tokenizes and vaults card data securely
-    - Returns vaultId and payId for future charges
-    - Can set as primary payment method
-    - Can enable autopay during addition
-    - Requires billing address for verification
-    
-    Security:
-    - Card data should be tokenized via payment gateway before calling
-    - Never log or store raw card numbers
-    - Always use PCI-compliant card tokenization
-    - Only masked information (last 4 digits) returned
-    
-    AI Usage Guidelines:
-    - Use when customer wants to add a payment method
-    - Explain that card will be securely stored
-    - Confirm autopay status if requested
-    - Never display full card numbers
-    - Refer to Customer Service for card security questions
-    
-    Notes:
-    - Requires complete billing address
-    - Card expiration format: MMYY
-    - Returns success with vaultId or error with failure reason
-    """
-    try:
-        response = await fontis.add_credit_card(
-            customer_id=params.customer_id,
-            first_name=params.first_name,
-            last_name=params.last_name,
-            card_nonce=params.card_nonce,
-            card_number=params.card_number,
-            card_expiration=params.card_expiration,
-            card_cvv=params.card_cvv,
-            address=params.address,
-            city=params.city,
-            state=params.state,
-            postal_code=params.postal_code,
-            country=params.country,
-            email=params.email,
-            description=params.description,
-            bill_time=params.bill_time,
-            customer_status=params.customer_status,
-            prepaid=params.prepaid,
-            set_autopay=params.set_autopay
-        )
-        
-        if not response.get("success"):
-            return {
-                "success": False,
-                "message": response.get("message", "Failed to add credit card")
-            }
-        
-        # Mask sensitive data in response
-        data = response.get("data", {})
-        return {
-            "success": True,
-            "message": "Credit card added successfully",
-            "data": {
-                "lastFour": data.get("lastFour"),
-                "description": f"{params.description} (ending in {data.get('lastFour')})",
-                "autopayEnabled": params.set_autopay
-            }
-        }
-        
-    except FontisAPIError as e:
-        raise HTTPException(status_code=500, detail=str(e))

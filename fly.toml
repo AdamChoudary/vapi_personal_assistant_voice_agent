@@ -1,55 +1,22 @@
-# Fly.io deployment configuration for Fontis Voice Agent
-# Deploy with: fly deploy
+# fly.toml app configuration file generated for fontis-voice-agent on 2025-10-27T19:36:49+05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "fontis-voice-agent"
-primary_region = "iad"  # US East (change to nearest region)
+app = 'fontis-voice-agent'
+primary_region = 'iad'
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  APP_ENV = "production"
-  LOG_FORMAT = "json"
-  LOG_LEVEL = "info"
-  SERVER_HOST = "0.0.0.0"
-  SERVER_PORT = "8000"
 
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
-  processes = ["app"]
-
-  [[http_service.checks]]
-    interval = "30s"
-    timeout = "10s"
-    grace_period = "10s"
-    method = "GET"
-    path = "/health"
-
-[[services]]
-  protocol = "tcp"
-  internal_port = 8000
-  processes = ["app"]
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-    force_https = true
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 1000
-    soft_limit = 750
+  min_machines_running = 0
+  processes = ['app']
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 512
-

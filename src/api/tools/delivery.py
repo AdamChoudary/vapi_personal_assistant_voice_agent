@@ -5,7 +5,6 @@ from src.core.security import verify_api_key
 from src.schemas.tools import (
     NextDeliveryTool,
     DeliveryStopsTool,
-    OffRouteOrdersTool,
     DefaultProductsTool,
     NextScheduledDeliveryTool,
     OrdersSearchTool
@@ -192,106 +191,6 @@ async def get_default_products(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/orders", dependencies=[Depends(verify_api_key)])
-async def get_off_route_orders(
-    params: OffRouteOrdersTool,
-    fontis: FontisClient = Depends(get_fontis_client)
-) -> dict:
-    """
-    Get recent off-route delivery orders (service tickets).
-    
-    Tool ID: b4e4f83221662ac8d966ec9e5cc6cfb2
-    Fontis Endpoint: POST /api/v1/customers/{customerId}/orders
-    Method: GetDeliveryOrders
-    
-    Purpose:
-    Retrieve off-route deliveries and customer-placed online orders.
-    Used for verifying service requests or online orders outside normal routes.
-    
-    Behavior:
-    - Returns list of recent off-route/online orders
-    - Each order includes products, equipment, delivery date, ticket number
-    - Shows full delivery note and exact type (online, off-route, etc.)
-    - Includes metadata (totalOrders, totalAmount)
-    
-    Business Rules:
-    - These are SERVICE TICKETS, not regular route deliveries
-    - Does NOT reflect recurring route deliveries or standing orders
-    - Does NOT reflect complete delivery history
-    - Off-route deliveries: $25 convenience fee, 3-item minimum
-    
-    AI Usage Guidelines:
-    - Use when verifying "I placed an online order" or "I requested a delivery"
-    - Explain these are special deliveries outside regular route schedule
-    - Regular route deliveries don't appear here (use Next Scheduled Delivery)
-    - Mention convenience fee and minimum for off-route requests
-    
-    Notes:
-    - numberOfOrders parameter controls how many recent orders to return (max: 50)
-    - Orders are sorted newest first
-    - Includes product details and quantities
-    """
-    try:
-        response = await fontis.get_last_delivery_orders(
-            customer_id=params.customer_id,
-            delivery_id=params.delivery_id,
-            number_of_orders=params.number_of_orders
-        )
-        
-        if not response.get("success"):
-            return {
-                "success": False,
-                "message": response.get("message", "Failed to retrieve orders")
-            }
-        
-        return response
-        
-    except FontisAPIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/frequencies", dependencies=[Depends(verify_api_key)])
-async def get_delivery_frequencies(
-    fontis: FontisClient = Depends(get_fontis_client)
-) -> dict:
-    """
-    Get available delivery frequency codes.
-    
-    Fontis Endpoint: GET /api/v1/deliveries/frequencies
-    
-    Purpose:
-    Retrieve valid delivery frequency codes for scheduling operations.
-    Used when customer wants to change delivery frequency or pause service.
-    
-    Behavior:
-    - Returns system-configured frequency options
-    - May return empty list if no custom frequencies configured
-    - Required for rescheduling operations
-    
-    AI Usage Guidelines:
-    - Use when customer asks about changing delivery frequency
-    - Explain available frequency options
-    - Fontis standard is 20-business-day rotation
-    
-    Notes:
-    - Returns empty data array if no custom frequencies configured
-    - System default is 20-business-day rotation
-    """
-    try:
-        response = await fontis.get_delivery_frequencies()
-        
-        if not response.get("success"):
-            return {
-                "success": False,
-                "message": response.get("message", "Failed to retrieve frequencies")
-            }
-        
-        return response
-        
-    except FontisAPIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/orders/search", dependencies=[Depends(verify_api_key)])
 async def search_orders(
     params: OrdersSearchTool,
@@ -331,6 +230,13 @@ async def search_orders(
     - Use in combination with other order endpoints for full details
     """
     try:
+        # Validate at least one search parameter is provided
+        if not any([params.ticket_number, params.customer_id, params.delivery_id]):
+            return {
+                "success": False,
+                "message": "At least one search parameter (ticket_number, customer_id, or delivery_id) is required"
+            }
+        
         response = await fontis.search_orders(
             ticket_number=params.ticket_number,
             customer_id=params.customer_id,

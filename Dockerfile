@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application code
 COPY src/ ./src/
+COPY static/ ./static/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
@@ -35,9 +36,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Use PORT environment variable for cloud compatibility (Render uses port 10000)
-ENV PORT=10000
+# Use PORT environment variable for cloud compatibility
+ENV PORT=8000
 
 # Run with production ASGI server
-CMD uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-10000}
+CMD uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}
 

@@ -1,163 +1,236 @@
 # Fontis AI Voice Agent
 
-Production-ready FastAPI middleware connecting Vapi AI with Fontis Water API for automated customer service calls.
+AI-powered voice agent for Fontis Water customer service and automated outbound calling.
 
-## Features
+## 🚀 Features
 
-- ✅ **19 Production APIs**: 17 Fontis APIs + JotForm onboarding integration
-- ✅ **Complete Coverage**: Customer search, billing, delivery, contracts, routes, onboarding
-- ✅ **Secure Authentication**: API key protection on all endpoints
-- ✅ **Webhook Verification**: HMAC signature validation
-- ✅ **Production Ready**: Docker + Fly.io deployment
-- ✅ **Error Handling**: Retry logic, structured logging
-- ✅ **Type Safe**: Full Pydantic validation
+### Inbound Call Handling
+- Customer account search and lookup
+- Billing information and payment history
+- Delivery scheduling and modifications
+- Service area verification
+- New customer onboarding
+- Contract generation and tracking
 
-## Quick Start (Development)
+### Outbound Call Automation
+- Declined payment notifications
+- Collections calls for past due accounts
+- Delivery reminder calls
+- Call status tracking
+
+## 🏗️ Tech Stack
+
+- **Framework:** FastAPI
+- **Package Manager:** uv
+- **AI Platform:** Vapi AI (GPT-4 Turbo)
+- **Voice:** 11labs
+- **External APIs:** Fontis Water API, JotForm
+
+## 📋 Prerequisites
+
+- Python 3.13+
+- uv package manager
+- Ngrok (for local development)
+- Vapi account with phone number
+- Fontis API credentials
+
+## 🔧 Installation
 
 ```bash
 # Install dependencies
-pip install -e .
+uv pip install -e .
 
-# Configure environment
+# Copy environment template
 cp env.example .env
-# Edit .env with your credentials
 
-# Run development server
+# Configure environment variables
+# Edit .env with your API keys and credentials
+```
+
+## ⚙️ Configuration
+
+Required environment variables in `.env`:
+
+```env
+# Vapi Configuration
+VAPI_API_KEY=your_private_api_key
+VAPI_PUBLIC_KEY=your_public_key
+VAPI_ASSISTANT_ID=your_assistant_id
+
+# Fontis API
+FONTIS_API_KEY=your_fontis_api_key
+FONTIS_BASE_URL=https://fontisweb.creatordraft.com/api/v1
+
+# Security
+INTERNAL_API_KEY=your_32_char_api_key
+
+# JotForm (for contracts)
+JOTFORM_API_KEY=your_jotform_key
+JOTFORM_FORM_ID=your_form_id
+```
+
+## 🚀 Running Locally
+
+### Start the Server
+
+```bash
 python run.py
 ```
 
-Server available at: `http://localhost:8000`
+Server will start on `http://localhost:8000`
 
-## Production Deployment
-
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete Fly.io setup guide.
+### Start Ngrok Tunnel
 
 ```bash
-# Quick deploy
-fly launch
-fly secrets set FONTIS_API_KEY=xxx INTERNAL_API_KEY=xxx JOTFORM_API_KEY=xxx JOTFORM_FORM_ID=xxx
-fly deploy
+ngrok http 8000
 ```
 
-## Project Structure
+Update Vapi webhook URL with the ngrok URL: `https://YOUR-NGROK-URL/vapi/webhooks`
 
+## 📞 Usage
+
+### Inbound Calls
+
+Customers call your Vapi phone number. The AI assistant handles:
+- Account inquiries
+- Billing questions
+- Delivery scheduling
+- New customer signup
+
+### Outbound Calls
+
+Trigger via admin API:
+
+```bash
+# Get your API key
+python -c "from src.config import settings; print(settings.internal_api_key)"
+
+# Trigger declined payment call
+curl -X POST http://localhost:8000/admin/outbound/declined-payment \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "C12345",
+    "customer_phone": "+16785551234",
+    "customer_name": "John Doe",
+    "declined_amount": 45.99,
+    "account_balance": 89.50
+  }'
 ```
-src/
-├── main.py              # FastAPI app with middleware
-├── config.py            # Environment configuration
-├── api/
-│   ├── webhooks.py      # Vapi webhook handlers
-│   └── tools/           # Tool endpoints (19 production APIs)
-│       ├── customer.py  # Customer search, details, finance
-│       ├── billing.py   # Invoices, payments, products
-│       ├── delivery.py  # Schedules, orders, frequencies
-│       ├── contracts.py # Service agreements
-│       ├── routes.py    # Route stops
-│       └── onboarding.py # JotForm integration
-├── services/
-│   ├── fontis_client.py # Fontis API integration (17 endpoints)
-│   ├── vapi_client.py   # Vapi outbound calls
-│   └── jotform_client.py # JotForm contract generation
-├── core/
-│   ├── deps.py          # FastAPI dependencies
-│   ├── security.py      # Authentication
-│   └── exceptions.py    # Custom exceptions
-└── schemas/             # Pydantic models
-```
 
-## API Endpoints
+## 📚 API Documentation
 
-### Core
+Interactive API docs available at: `http://localhost:8000/docs`
 
-- `GET /` - Service information
-- `GET /health` - Health check for monitoring
-- `GET /docs` - OpenAPI documentation (dev only)
+### Key Endpoints
 
-### Webhooks
+**Public:**
+- `GET /health` - Health check
+- `POST /vapi/webhooks` - Vapi webhook handler
 
-- `POST /webhooks/vapi` - Receive call events from Vapi
+**Admin (requires Bearer token):**
+- `POST /admin/outbound/declined-payment` - Trigger declined payment call
+- `POST /admin/outbound/collections` - Trigger collections call
+- `POST /admin/outbound/delivery-reminder` - Trigger delivery reminder
+- `GET /admin/outbound/call-status/{id}` - Get call status
 
-### Tools (All require authentication)
-
-**Customer APIs** (3 endpoints)
+**Tools (called by Vapi):**
 - `POST /tools/customer/search` - Search customers
-- `POST /tools/customer/details` - Get customer details
-- `POST /tools/customer/finance-info` - Combined finance & delivery info
+- `POST /tools/billing/balance` - Get billing info
+- `POST /tools/delivery/next` - Get next delivery
+- `POST /tools/delivery/hold` - Hold delivery
+- `POST /tools/routes/check-service` - Check service area
+- `POST /tools/onboarding/create-account` - Create account
 
-**Billing APIs** (6 endpoints)
-- `POST /tools/billing/balance` - Account balances
-- `POST /tools/billing/invoice-history` - Invoices and payments
-- `POST /tools/billing/invoice-detail` - Detailed invoice line items
-- `POST /tools/billing/payment-methods` - Payment methods on file
-- `POST /tools/billing/products` - Product catalog & pricing
-- `POST /tools/billing/add-credit-card` - Add payment method
-
-**Delivery APIs** (6 endpoints)
-- `POST /tools/delivery/stops` - Delivery locations
-- `POST /tools/delivery/next-scheduled` - Next delivery date
-- `POST /tools/delivery/default-products` - Standing orders
-- `POST /tools/delivery/orders` - Off-route delivery orders
-- `POST /tools/delivery/orders/search` - Search orders by ticket/customer
-- `GET /tools/delivery/frequencies` - Delivery frequency codes
-
-**Contracts & Routes** (2 endpoints)
-- `POST /tools/contracts/get-contracts` - Customer contracts
-- `POST /tools/routes/stops` - Route stops for specific date
-
-**Onboarding** (2 endpoints)
-- `POST /tools/onboarding/send-contract` - Send JotForm contract
-- `GET /tools/onboarding/contract-status/{id}` - Check submission status
-
-## Configuration
-
-Required environment variables:
+## 🧪 Testing
 
 ```bash
-# Fontis API (Required)
-FONTIS_API_KEY=fk_your_key_here
-FONTIS_BASE_URL=https://api.fontiswater.com/api/v1
+# Run unit tests
+pytest tests/
 
-# Internal Security (Required)
-INTERNAL_API_KEY=your_32_char_minimum_api_key
+# Test health endpoint
+curl http://localhost:8000/health
 
-# JotForm (Required for onboarding)
-JOTFORM_API_KEY=your_jotform_api_key
-JOTFORM_FORM_ID=your_form_id
-
-# Vapi AI (Optional for outbound calls)
-VAPI_API_KEY=your_vapi_secret_key
-VAPI_PUBLIC_KEY=your_vapi_public_key
-VAPI_WEBHOOK_SECRET=your_webhook_secret
-
-# Application
-APP_ENV=development
-LOG_LEVEL=info
-CORS_ORIGINS=http://localhost:8000
+# Test with API docs
+open http://localhost:8000/docs
 ```
 
-See `env.example` for complete configuration template.
+## 📁 Project Structure
 
-## Documentation
+```
+vapi_personal_assistant_voice_agent/
+├── src/
+│   ├── api/
+│   │   ├── admin/          # Admin endpoints (outbound calls)
+│   │   ├── tools/          # Tool endpoints (Vapi calls these)
+│   │   └── vapi/           # Vapi webhooks
+│   ├── core/               # Core utilities (deps, exceptions, security)
+│   ├── schemas/            # Pydantic models
+│   ├── services/           # Business logic
+│   ├── config.py           # Configuration management
+│   └── main.py             # FastAPI application
+├── tests/                  # Unit tests
+├── static/                 # Web interface
+├── docs/                   # Project documentation
+├── pyproject.toml          # Project config
+├── run.py                  # Server entry point
+└── README.md               # This file
+```
 
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide
-- **[CLIENT_REPORT.md](CLIENT_REPORT.md)** - Technical requirements explanation
-- **[docs/](docs/)** - API reference and requirements
+## 🔐 Security
 
-## Security
+- Bearer token authentication for admin endpoints
+- API key authentication for tool endpoints
+- Webhook signature verification
+- Environment-based secrets management
+- HTTPS for all external communications
 
-- ✅ API key authentication on all tool endpoints
-- ✅ Webhook signature verification (HMAC-SHA256)
-- ✅ CORS restricted to Vapi servers only
-- ✅ Environment-based secrets management
-- ✅ PII data masking (payment methods)
-- ✅ Production/development environment separation
+## 🚀 Deployment
 
-## Technology Stack
+See `DEPLOYMENT_READY.md` for production deployment guide.
 
-- **Framework**: FastAPI 0.115+ (Python 3.11+)
-- **HTTP Client**: httpx (async, connection pooling)
-- **Validation**: Pydantic 2.9+
-- **Logging**: structlog (JSON structured logs)
-- **Retry Logic**: tenacity
-- **Deployment**: Docker + Fly.io
-- **AI Platform**: Vapi + Twilio
+### Quick Deploy Options
+
+- **Fly.io:** `fly deploy` (see `fly.toml`)
+- **Render:** Use `render.yaml`
+- **Docker:** Use included `Dockerfile`
+
+## 📊 Status
+
+- ✅ Inbound customer service calls
+- ✅ Outbound declined payment calls
+- ✅ Outbound collections calls
+- ✅ Outbound delivery reminders
+- ✅ Real-time Fontis API integration
+- ✅ Contract generation via JotForm
+- ✅ Comprehensive error handling
+- ✅ Structured logging
+
+## 📖 Documentation
+
+- `SYSTEM_READY.md` - Complete system status and verification
+- `PROJECT_STATUS_FINAL.md` - Full implementation details
+- `OUTBOUND_CALLS_READY.md` - Outbound call API reference
+- `VAPI_DASHBOARD_SETUP.md` - Vapi configuration guide
+- `DEPLOYMENT_READY.md` - Production deployment checklist
+
+## 🤝 Support
+
+For issues or questions:
+1. Check API docs: `http://localhost:8000/docs`
+2. Review logs: Server terminal output
+3. Check ngrok: `http://localhost:4040`
+4. Vapi dashboard: https://dashboard.vapi.ai
+
+## 📄 License
+
+See `LICENSE` file.
+
+## 🏆 Project Status
+
+**Status:** Production Ready ✅  
+**Version:** 0.1.0  
+**Last Updated:** October 24, 2025
+
+All features implemented and tested according to project requirements.
+

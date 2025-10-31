@@ -53,10 +53,12 @@ class CustomerSearchTool(BaseModel):
     
     Tool ID: 41a59e7eacc6c58f0e215dedfc650935
     Endpoint: POST /tools/customer/search
+    
+    Note: lookup is REQUIRED - this forces VAPI to extract parameter before calling
     """
     lookup: str = Field(
         ...,
-        min_length=2,
+        min_length=1,
         description="Customer name, address, phone, or account number to search for"
     )
     offset: int = Field(
@@ -70,6 +72,23 @@ class CustomerSearchTool(BaseModel):
         le=100,
         description="Number of results to return (max 100)"
     )
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CustomerSearchCompatTool(BaseModel):
+    """
+    Compatibility schema for VAPI dashboard tests that may send
+    {"query", "pageLimit", "locationId"}. We map query→lookup.
+    """
+    lookup: str | None = Field(default=None, description="Primary search term")
+    query: str | None = Field(default=None, description="Alias for lookup from dashboard body")
+    pageLimit: int | None = Field(default=None, description="Ignored; accepted for compatibility")
+    locationId: str | None = Field(default=None, description="Ignored; accepted for compatibility")
+    offset: int = Field(default=0, ge=0, description="Pagination offset")
+    take: int = Field(default=25, ge=1, le=100, description="Page size")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class CustomerDetailsTool(BaseModel):
@@ -83,6 +102,10 @@ class CustomerDetailsTool(BaseModel):
         ...,
         alias="customerId",
         description="Customer account number"
+    )
+    include_inactive: bool = Field(
+        default=False,
+        description="Include inactive customers in results"
     )
     
     model_config = ConfigDict(populate_by_name=True)
@@ -127,10 +150,10 @@ class FinanceDeliveryInfoTool(BaseModel):
         alias="customerId",
         description="Customer account number"
     )
-    delivery_id: str = Field(
-        ...,
+    delivery_id: str | None = Field(
+        default=None,
         alias="deliveryId",
-        description="Delivery stop ID"
+        description="Delivery stop ID (optional, will use primary if not provided)"
     )
     
     model_config = ConfigDict(populate_by_name=True)
@@ -260,20 +283,20 @@ class ProductsTool(BaseModel):
     Tool ID: 2b4ad3fcd9ea0acf476734fc7368524f
     Endpoint: POST /tools/billing/products
     """
-    customer_id: str = Field(
-        ...,
+    customer_id: str | None = Field(
+        default=None,
         alias="customerId",
-        description="Customer account number"
+        description="Customer account number (optional)"
     )
-    delivery_id: str = Field(
-        ...,
+    delivery_id: str | None = Field(
+        default=None,
         alias="deliveryId",
-        description="Delivery stop ID"
+        description="Delivery stop ID (optional)"
     )
-    postal_code: str = Field(
-        ...,
+    postal_code: str | None = Field(
+        default=None,
         alias="postalCode",
-        description="Postal code for pricing"
+        description="Postal code for pricing (optional)"
     )
     internet_only: bool = Field(
         default=True,
@@ -367,37 +390,6 @@ class InvoiceDetailTool(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-# ===== Off-Route Orders Tool Parameters =====
-
-
-class OffRouteOrdersTool(BaseModel):
-    """
-    Parameters for off-route orders tool.
-    
-    Tool ID: b4e4f83221662ac8d966ec9e5cc6cfb2
-    Endpoint: POST /tools/delivery/orders
-    """
-    customer_id: str = Field(
-        ...,
-        alias="customerId",
-        description="Customer account number"
-    )
-    delivery_id: str = Field(
-        ...,
-        alias="deliveryId",
-        description="Delivery stop ID"
-    )
-    number_of_orders: int = Field(
-        default=5,
-        alias="numberOfOrders",
-        ge=1,
-        le=50,
-        description="Number of recent orders to return (max 50)"
-    )
-    
-    model_config = ConfigDict(populate_by_name=True)
-
-
 # ===== Default Products Updated Tool Parameters =====
 
 
@@ -448,102 +440,6 @@ class NextScheduledDeliveryTool(BaseModel):
         ge=1,
         le=90,
         description="Number of days ahead to search (default: 45, max: 90)"
-    )
-    
-    model_config = ConfigDict(populate_by_name=True)
-
-
-# ===== Credit Card Vault Tool Parameters =====
-
-
-class CreditCardVaultTool(BaseModel):
-    """
-    Parameters for credit card vault tool.
-    
-    Endpoint: POST /tools/billing/add-credit-card
-    """
-    customer_id: str = Field(
-        ...,
-        alias="customerId",
-        description="Customer account number"
-    )
-    first_name: str = Field(
-        ...,
-        alias="firstName",
-        description="Cardholder first name"
-    )
-    last_name: str = Field(
-        ...,
-        alias="lastName",
-        description="Cardholder last name"
-    )
-    card_nonce: str = Field(
-        ...,
-        alias="cardNonce",
-        description="Card token from payment gateway"
-    )
-    card_number: str = Field(
-        ...,
-        alias="cardNumber",
-        description="Credit card number"
-    )
-    card_expiration: str = Field(
-        ...,
-        alias="cardExpiration",
-        description="Card expiration (MMYY)"
-    )
-    card_cvv: str = Field(
-        ...,
-        alias="cardCVV",
-        description="Card CVV code"
-    )
-    address: str = Field(
-        ...,
-        description="Billing address"
-    )
-    city: str = Field(
-        ...,
-        description="Billing city"
-    )
-    state: str = Field(
-        ...,
-        description="Billing state"
-    )
-    postal_code: str = Field(
-        ...,
-        alias="postalCode",
-        description="Billing postal code"
-    )
-    country: str = Field(
-        default="US",
-        description="Billing country"
-    )
-    email: str = Field(
-        ...,
-        description="Customer email"
-    )
-    description: str = Field(
-        default="",
-        description="Card description/label"
-    )
-    bill_time: int = Field(
-        default=1,
-        alias="billTime",
-        description="Billing time preference"
-    )
-    customer_status: int = Field(
-        default=3,
-        alias="customerStatus",
-        description="Customer status code"
-    )
-    prepaid: bool = Field(
-        default=False,
-        description="Is prepaid account"
-    )
-    set_autopay: bool = Field(
-        default=False,
-        alias="setAutopay",
-        description="Enable autopay for this card"
     )
     
     model_config = ConfigDict(populate_by_name=True)

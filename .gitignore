@@ -21,46 +21,62 @@ wheels/
 *.egg
 
 # Virtual Environment
-.venv/
 venv/
 ENV/
 env/
 
-# Environment Variables
-.env
-.env.*
-!.env.production
-!.env.example
-
-# IDEs
+# IDE
 .vscode/
 .idea/
-.cursor/
 *.swp
 *.swo
 *~
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Build artifacts
-*.log
-.mypy_cache/
-.ruff_cache/
-
-# Deployment
+# Project specific
+ngrok_output.txt
+*.json.bak
+vapi_config_debug.json
+vapi_assistant*.json
+assistant_*.json
+call_detail_*.json
+error_call*.json
+new_call_*.json
 cloudflared.exe
-*.exe
+cloudflared
 
-# Node (if needed for local Vapi SDK testing)
-node_modules/
-package-lock.json
-*.bundle.js
+# Documentation (keep only README.md)
+*.md
+!README.md
 
+# Temporary config files
+VAPI_DIAGNOSTIC_REPORT.txt
+render.yaml
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# UV
+.uv/
+uv.lock

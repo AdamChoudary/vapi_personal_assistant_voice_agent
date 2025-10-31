@@ -19,11 +19,13 @@ Design decisions:
 import time
 from contextlib import asynccontextmanager
 
+import httpx
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from src.api import webhooks
 from src.api.vapi import webhooks_handler as vapi_webhooks
 from src.api.tools import billing, contracts, customer, delivery, onboarding, routes
@@ -98,9 +100,8 @@ app = FastAPI(
     description="FastAPI middleware for Vapi-Fontis Water API integration",
     version="0.1.0",
     lifespan=lifespan,
-    # Disable docs in production for security
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # ===== Middleware Configuration =====
@@ -318,6 +319,13 @@ app.include_router(contracts.router)
 app.include_router(onboarding.router)
 app.include_router(routes.router)
 
+# Admin routes
+from src.api.admin import outbound_calls
+app.include_router(outbound_calls.router)
+
+# Mount static files for voice test interface
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # ===== Core Endpoints =====
 
 
@@ -387,6 +395,77 @@ async def health():
         "environment": settings.app_env,
         "version": "0.1.0",
         "timestamp": int(time.time())
+    }
+
+
+@app.get("/api/config")
+async def get_vapi_config():
+    """
+    Return Vapi configuration for browser-side SDK initialization.
+    
+    Public endpoint (no auth required) that exposes only public keys
+    and configuration needed by the Vapi Web SDK in the browser.
+    
+    Why separate endpoint? Don't expose private keys to browser.
+    """
+    return {
+        "publicKey": settings.vapi_public_key,
+        "assistantId": settings.vapi_assistant_id,
+    }
+
+
+@app.get("/api/tunnel/status")
+async def get_tunnel_status():
+    """
+    Check tunnel status (cloudflared or ngrok) and return public URL.
+    
+    Acts as a proxy to avoid CORS issues when checking from the browser dashboard.
+    Tries cloudflared first (port 20241), then falls back to ngrok (port 4040).
+    """
+    # Try cloudflared first (preferred)
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get("http://127.0.0.1:20241/metrics")
+            if response.status_code == 200:
+                text = response.text
+                # Extract cloudflare tunnel URL from metrics
+                import re
+                match = re.search(r'https://[a-z0-9-]+\.trycloudflare\.com', text)
+                if match:
+                    return {
+                        "active": True,
+                        "url": match.group(0),
+                        "status": "connected",
+                        "type": "cloudflared"
+                    }
+    except Exception:
+        pass
+    
+    # Fallback to ngrok
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get("http://127.0.0.1:4040/api/tunnels")
+            if response.status_code == 200:
+                data = response.json()
+                tunnels = data.get("tunnels", [])
+                https_tunnel = next((t for t in tunnels if t.get("proto") == "https"), None)
+                
+                if https_tunnel:
+                    return {
+                        "active": True,
+                        "url": https_tunnel.get("public_url"),
+                        "status": "connected",
+                        "type": "ngrok"
+                    }
+    except Exception:
+        pass
+    
+    logger.warning("tunnel_check_failed", message="Neither cloudflared nor ngrok detected")
+    return {
+        "active": False,
+        "url": None,
+        "status": "not_running",
+        "type": None
     }
 
 
