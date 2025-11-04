@@ -64,8 +64,17 @@ async def search_customer(
                 "data": []
             }
         
-        # Extract customer data
-        customers = response.get("data", {}).get("data", [])
+        # Extract customer data - handle both nested and direct list formats
+        data_field = response.get("data", {})
+        if isinstance(data_field, list):
+            # Direct list format: {"data": [...]}
+            customers = data_field
+        elif isinstance(data_field, dict):
+            # Nested format: {"data": {"data": [...]}}
+            customers = data_field.get("data", [])
+        else:
+            customers = []
+        
         pagination = response.get("meta", {}).get("pagination", {})
         
         if not customers:
@@ -152,7 +161,16 @@ async def search_customer_vapi(
                 "Cache-Control": "no-transform"
             })
 
-        customers = response.get("data", {}).get("data", [])
+        # Extract customer data - handle both nested and direct list formats
+        data_field = response.get("data", {})
+        if isinstance(data_field, list):
+            # Direct list format: {"data": [...]}
+            customers = data_field
+        elif isinstance(data_field, dict):
+            # Nested format: {"data": {"data": [...]}}
+            customers = data_field.get("data", [])
+        else:
+            customers = []
         if not customers:
             body = "No customers found matching your search. Please try a different name, phone, address, or account number."
             return Response(content=body.encode("utf-8"), media_type="text/plain; charset=utf-8", headers={
