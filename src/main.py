@@ -26,7 +26,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from src.api import webhooks
 from src.api.vapi import webhooks_handler as vapi_webhooks
 from src.api.tools import billing, contracts, customer, delivery, onboarding, routes
 from src.config import settings
@@ -310,8 +309,7 @@ async def generic_error_handler(request: Request, exc: Exception):
 
 # Include all API routers
 # Order matters for path matching (more specific routes first)
-app.include_router(webhooks.router)
-app.include_router(vapi_webhooks.router)  # Vapi webhook handler
+app.include_router(vapi_webhooks.router)  # Vapi webhook handler (handles /vapi/webhooks)
 app.include_router(customer.router)
 app.include_router(delivery.router)
 app.include_router(billing.router)
@@ -354,8 +352,7 @@ async def root():
         "endpoints": {
             "health": "/health",
             "webhooks": {
-                "vapi": "/webhooks/vapi",
-                "vapi_function_call": "/webhooks/vapi/function-call"
+                "vapi": "/vapi/webhooks"
             },
             "tools": {
                 "customer": "/tools/customer",

@@ -43,6 +43,21 @@
         "what": "Project cleanup - removed all non-production files",
         "why": "Clean codebase: deleted 86+ test/debug scripts, 12 directories, all markdown docs except README.md, temporary JSON files, dashboard/static test directories",
         "when": "2025-10-30"
+      },
+      {
+        "what": "Enhanced system prompt per client requirements",
+        "why": "Comprehensive prompt aligned with Fontis Water API docs: mandatory 2-identifier verification, specific tool usage guidelines, delivery model explanations (swap vs standing order), contract types, payment handling, new customer onboarding flow, empathetic skip reason handling",
+        "when": "2025-10-30"
+      },
+      {
+        "what": "Removed duplicate/unused endpoints (webhooks.py stub, search-text variant)",
+        "why": "webhooks.py was stub implementation with TODO comments. Actual webhook handler is in vapi/webhooks_handler.py at /vapi/webhooks. search-text endpoint was unused - kept search-vapi (used by VAPI config) and search (used by tests)",
+        "when": "2025-01-XX"
+      },
+      {
+        "what": "Admin outbound call APIs separated from tool endpoints",
+        "why": "Admin APIs (/admin/outbound/*) are for operational use (manual triggering via scripts/cron jobs) not VAPI calls. Purpose: declined payment notifications, collections outreach, delivery reminders. Requires API key auth but different use case than customer-facing voice agent tools",
+        "when": "2025-01-XX"
       }
     ]
   },
@@ -91,6 +106,12 @@
       "deps": [],
       "state": "active",
       "notes": "Comprehensive testing scripts for endpoint validation"
+    },
+    "admin_outbound_calls": {
+      "files": ["src/api/admin/outbound_calls.py"],
+      "deps": ["INTERNAL_API_KEY", "OutboundCallService"],
+      "state": "active",
+      "notes": "Admin endpoints for manual outbound call triggering. Used by scripts/cron jobs to initiate declined payment calls, collections calls, and delivery reminders. Not called by VAPI - these are operational/admin tools for staff to proactively contact customers."
     }
   },
   "debt": [],
