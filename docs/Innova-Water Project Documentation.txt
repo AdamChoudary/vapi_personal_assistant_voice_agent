@@ -45,6 +45,25 @@ Provide next steps to resolve
 Middleware + RestAPI will be the main data source.
 Declined payments are available only through automated transaction reports (not API).
 Contracts sent via JotForm integration.
+Outbound Calls & SMS
+Declined Payments
+Contact customers flagged by automated transaction report
+Inform customer of declined payment
+Advise to update payment online
+If customer needs assistance, offer transfer to live agent
+Collections Calls
+Contact past due accounts with similar flow to declined payments
+Communicate outstanding balance and payment options
+Delivery Reminders
+Identify customers scheduled for delivery on a given date
+Call or text reminder before delivery
+If customer is past due or on hold:
+Inform them delivery will not occur due to account status
+Provide next steps to resolve
+ Integration Notes:
+Middleware + RestAPI will be the main data source.
+Declined payments are available only through automated transaction reports (not API).
+Contracts sent via JotForm integration.
 
 
 CRM-Driven Questions

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import Response
 
 from src.core.deps import get_fontis_client
 from src.core.security import verify_api_key
@@ -106,68 +106,6 @@ async def search_customer(
         customer_search_cache.set(cache_key, result)
         
         return result
-        
-    except CustomerNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except FontisAPIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/search-text", dependencies=[Depends(verify_api_key)], response_class=PlainTextResponse)
-async def search_customer_text(
-    params: CustomerSearchTool,
-    fontis: FontisClient = Depends(get_fontis_client)
-):
-    """
-    Text-only variant for VAPI compatibility. Returns plain text response.
-    """
-    try:
-        if params.lookup.strip() == "":
-            return "Search term cannot be empty. Please provide a customer name, phone, address, or account number."
-
-        cache_key = f"search-text:{params.lookup}:{params.offset}:{params.take}"
-        cached = customer_search_cache.get(cache_key)
-        if cached is not None and isinstance(cached, dict) and "result" in cached:
-            return cached["result"]
-
-        response = await fontis.search_customers(
-            lookup=params.lookup,
-            offset=params.offset,
-            take=params.take
-        )
-
-        if not response.get("success"):
-            return response.get("message", "Search failed")
-
-        customers = response.get("data", {}).get("data", [])
-        if not customers:
-            return "No customers found matching your search. Please try a different name, phone, address, or account number."
-
-        count = len(customers)
-        customers_to_show = customers[:3]
-        result_parts = [f"Found {count} customer(s):", ""]
-
-        for idx, customer in enumerate(customers_to_show, 1):
-            name = customer.get('name', 'Unknown')
-            cust_id = customer.get('customerId', '')
-            address = customer.get("address", {}).get("fullAddress", "")
-            phone = customer.get("contact", {}).get("phoneNumber", "")
-
-            result_parts.append(f"{idx}. {name} (ID: {cust_id})")
-            if address:
-                result_parts.append(f"   {address}")
-            if phone:
-                result_parts.append(f"   Phone: {phone}")
-            result_parts.append("")
-
-        if count > 3:
-            result_parts.append(f"...and {count - 3} more customers.")
-
-        result_parts.append("Use the Customer ID to get more details.")
-
-        text_result = "\n".join(result_parts)
-        customer_search_cache.set(cache_key, {"result": text_result})
-        return text_result
         
     except CustomerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
