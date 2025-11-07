@@ -570,7 +570,7 @@ class SendContractTool(BaseModel):
 
 class ContractStatusTool(BaseModel):
     """
-    Parameters for checking contract status tool.
+    Parameters for checking onboarding contract submission status.
     
     Endpoint: POST /tools/onboarding/contract-status
     """
@@ -580,4 +580,108 @@ class ContractStatusTool(BaseModel):
         description="JotForm submission ID from send_contract response"
     )
     
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# ===== Outbound Call Tool Parameters =====
+
+
+class DeclinedPaymentCallTool(BaseModel):
+    """Parameters for declined payment outbound call."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Fontis customer ID"
+    )
+    customer_phone: str = Field(
+        ...,
+        alias="customerPhone",
+        description="Customer phone number (E.164 format)"
+    )
+    customer_name: str = Field(
+        ...,
+        alias="customerName",
+        description="Customer full name"
+    )
+    declined_amount: float | None = Field(
+        default=None,
+        alias="declinedAmount",
+        description="Amount that was declined"
+    )
+    account_balance: float | None = Field(
+        default=None,
+        alias="accountBalance",
+        description="Current account balance"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CollectionsCallTool(BaseModel):
+    """Parameters for collections outbound call."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Fontis customer ID"
+    )
+    customer_phone: str = Field(
+        ...,
+        alias="customerPhone",
+        description="Customer phone number (E.164 format)"
+    )
+    customer_name: str = Field(
+        ...,
+        alias="customerName",
+        description="Customer full name"
+    )
+    past_due_amount: float = Field(
+        ...,
+        alias="pastDueAmount",
+        description="Past due amount"
+    )
+    days_past_due: int | None = Field(
+        default=None,
+        alias="daysPastDue",
+        description="Days the account is past due"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DeliveryReminderCallTool(BaseModel):
+    """Parameters for delivery reminder outbound call or SMS."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Fontis customer ID"
+    )
+    customer_phone: str = Field(
+        ...,
+        alias="customerPhone",
+        description="Customer phone number (E.164 format)"
+    )
+    customer_name: str = Field(
+        ...,
+        alias="customerName",
+        description="Customer full name"
+    )
+    delivery_date: str = Field(
+        ...,
+        alias="deliveryDate",
+        description="Scheduled delivery date (YYYY-MM-DD)"
+    )
+    send_sms: bool = Field(
+        default=False,
+        alias="sendSms",
+        description="Send SMS instead of placing a call"
+    )
+    account_on_hold: bool = Field(
+        default=False,
+        alias="accountOnHold",
+        description="Account is past due/on hold"
+    )
+
     model_config = ConfigDict(populate_by_name=True)

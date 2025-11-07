@@ -98,6 +98,28 @@ class Settings(BaseSettings):
         description="JotForm form ID for customer onboarding contracts"
     )
     
+    # ===== Email Configuration (for CSV batch monitoring) =====
+    email_imap_server: str | None = Field(
+        default=None,
+        description="IMAP server for monitoring CSV batch emails (e.g., imap.gmail.com)"
+    )
+    email_imap_port: int = Field(
+        default=993,
+        description="IMAP port (usually 993 for SSL)"
+    )
+    email_address: str | None = Field(
+        default=None,
+        description="Email address to monitor for CSV attachments"
+    )
+    email_password: str | None = Field(
+        default=None,
+        description="Email password or app password for IMAP access"
+    )
+    csv_download_dir: str = Field(
+        default="data/csv_batches",
+        description="Directory to save downloaded CSV files"
+    )
+    
     # ===== Security Settings =====
     internal_api_key: str = Field(
         default="dev_key_change_in_production",

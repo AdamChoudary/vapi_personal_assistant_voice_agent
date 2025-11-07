@@ -312,6 +312,105 @@ TOOL_DEFINITIONS = [
             },
             "required": ["customer_name", "email", "phone", "address"]
         }
+    },
+
+    # OUTBOUND CALL TOOLS
+    {
+        "name": "declined_payment_call",
+        "description": "Initiate a declined payment outreach call to notify the customer about a failed payment and request updated information.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Fontis customer ID"
+                },
+                "customer_phone": {
+                    "type": "string",
+                    "description": "Customer phone number in E.164 format"
+                },
+                "customer_name": {
+                    "type": "string",
+                    "description": "Customer name"
+                },
+                "declined_amount": {
+                    "type": "number",
+                    "description": "Amount that was declined",
+                    "nullable": True
+                },
+                "account_balance": {
+                    "type": "number",
+                    "description": "Current account balance",
+                    "nullable": True
+                }
+            },
+            "required": ["customer_id", "customer_phone", "customer_name"]
+        }
+    },
+    {
+        "name": "collections_call",
+        "description": "Initiate a collections call for a past-due account to discuss outstanding balances and next steps.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Fontis customer ID"
+                },
+                "customer_phone": {
+                    "type": "string",
+                    "description": "Customer phone number in E.164 format"
+                },
+                "customer_name": {
+                    "type": "string",
+                    "description": "Customer name"
+                },
+                "past_due_amount": {
+                    "type": "number",
+                    "description": "Past due amount"
+                },
+                "days_past_due": {
+                    "type": "integer",
+                    "description": "Days the account is past due",
+                    "nullable": True
+                }
+            },
+            "required": ["customer_id", "customer_phone", "customer_name", "past_due_amount"]
+        }
+    },
+    {
+        "name": "delivery_reminder_call",
+        "description": "Send a delivery reminder by phone or SMS, optionally warning about account holds before scheduled service.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Fontis customer ID"
+                },
+                "customer_phone": {
+                    "type": "string",
+                    "description": "Customer phone number in E.164 format"
+                },
+                "customer_name": {
+                    "type": "string",
+                    "description": "Customer name"
+                },
+                "delivery_date": {
+                    "type": "string",
+                    "description": "Scheduled delivery date (YYYY-MM-DD)"
+                },
+                "send_sms": {
+                    "type": "boolean",
+                    "description": "Send an SMS instead of placing a call"
+                },
+                "account_on_hold": {
+                    "type": "boolean",
+                    "description": "Account is on hold or past due"
+                }
+            },
+            "required": ["customer_id", "customer_phone", "customer_name", "delivery_date"]
+        }
     }
 ]
 
@@ -332,7 +431,10 @@ ENDPOINT_MAP = {
     "search_orders": "/tools/delivery/search-orders",
     "get_contracts": "/tools/contracts/get-contracts",
     "route_stops": "/tools/routes/stops",
-    "send_contract": "/tools/onboarding/send-contract"
+    "send_contract": "/tools/onboarding/send-contract",
+    "declined_payment_call": "/admin/outbound/declined-payment",
+    "collections_call": "/admin/outbound/collections",
+    "delivery_reminder_call": "/admin/outbound/delivery-reminder"
 }
 
 

@@ -15,6 +15,7 @@ import structlog
 
 from src.core.deps import get_fontis_client
 from src.services.fontis_client import FontisClient
+from src.services.outbound_call_service import get_outbound_service
 from src.core.exceptions import FontisAPIError
 from src.schemas.vapi import VapiFunctionCall, VapiWebhookEvent
 
@@ -291,7 +292,23 @@ async def route_function_call(
         from src.schemas.tools import ContractStatusTool
         params = ContractStatusTool(**parameters)
         return await contract_status_handler(params)
-    
+
+    # Outbound call tools
+    elif function_name == "declined_payment_call":
+        from src.schemas.tools import DeclinedPaymentCallTool
+        params = DeclinedPaymentCallTool(**parameters)
+        return await declined_payment_call_handler(params)
+
+    elif function_name == "collections_call":
+        from src.schemas.tools import CollectionsCallTool
+        params = CollectionsCallTool(**parameters)
+        return await collections_call_handler(params)
+
+    elif function_name == "delivery_reminder_call":
+        from src.schemas.tools import DeliveryReminderCallTool
+        params = DeliveryReminderCallTool(**parameters)
+        return await delivery_reminder_call_handler(params)
+ 
     else:
         raise ValueError(f"Unknown function: {function_name}")
 
@@ -498,4 +515,106 @@ async def contract_status_handler(params) -> dict:
         submission_id=params.submission_id
     )
     return response
+
+
+async def declined_payment_call_handler(params) -> dict[str, Any]:
+    """Handle declined payment outbound call."""
+
+    outbound_service = get_outbound_service()
+    customer_data = {
+        "customer_id": params.customer_id,
+        "name": params.customer_name,
+        "declined_amount": params.declined_amount,
+        "account_balance": params.account_balance
+    }
+
+    call_result = await outbound_service.initiate_call(
+        customer_phone=params.customer_phone,
+        call_type="declined_payment",
+        customer_data=customer_data
+    )
+
+    return {
+        "success": True,
+        "callId": call_result.get("id"),
+        "status": call_result.get("status"),
+        "message": f"Declined payment call initiated to {params.customer_name}"
+    }
+
+
+async def collections_call_handler(params) -> dict[str, Any]:
+    """Handle collections outbound call."""
+
+    outbound_service = get_outbound_service()
+    customer_data = {
+        "customer_id": params.customer_id,
+        "name": params.customer_name,
+        "past_due_amount": params.past_due_amount,
+        "days_past_due": params.days_past_due
+    }
+
+    call_result = await outbound_service.initiate_call(
+        customer_phone=params.customer_phone,
+        call_type="collections",
+        customer_data=customer_data
+    )
+
+    return {
+        "success": True,
+        "callId": call_result.get("id"),
+        "status": call_result.get("status"),
+        "message": f"Collections call initiated to {params.customer_name}"
+    }
+
+
+async def delivery_reminder_call_handler(params) -> dict[str, Any]:
+    """Handle delivery reminder outbound call or SMS."""
+
+    outbound_service = get_outbound_service()
+    customer_data = {
+        "customer_id": params.customer_id,
+        "name": params.customer_name,
+        "delivery_date": params.delivery_date,
+        "account_on_hold": params.account_on_hold
+    }
+
+    if params.send_sms:
+        if params.account_on_hold:
+            message = (
+                f"Hi {params.customer_name}, this is Fontis Water. "
+                f"Your scheduled delivery for {params.delivery_date} cannot be completed "
+                f"due to an outstanding balance on your account. Please call us at "
+                f"(678) 303-4022 or update your payment at fontisweb.com to resume service."
+            )
+        else:
+            message = (
+                f"Hi {params.customer_name}, this is Fontis Water reminding you of your "
+                f"delivery scheduled for {params.delivery_date}. Please have your empty "
+                f"bottles ready for exchange. Questions? Call (678) 303-4022."
+            )
+
+        sms_result = await outbound_service.send_sms(
+            customer_phone=params.customer_phone,
+            message=message,
+            customer_data=customer_data
+        )
+
+        return {
+            "success": True,
+            "message": f"SMS reminder sent to {params.customer_name}",
+            "callId": sms_result.get("id")
+        }
+
+    call_result = await outbound_service.initiate_call(
+        customer_phone=params.customer_phone,
+        call_type="delivery_reminder",
+        customer_data=customer_data
+    )
+
+    return {
+        "success": True,
+        "callId": call_result.get("id"),
+        "status": call_result.get("status"),
+        "message": f"Delivery reminder call initiated to {params.customer_name}"
+    }
 

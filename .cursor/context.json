@@ -58,6 +58,11 @@
         "what": "Admin outbound call APIs separated from tool endpoints",
         "why": "Admin APIs (/admin/outbound/*) are for operational use (manual triggering via scripts/cron jobs) not VAPI calls. Purpose: declined payment notifications, collections outreach, delivery reminders. Requires API key auth but different use case than customer-facing voice agent tools",
         "when": "2025-01-XX"
+      },
+      {
+        "what": "Automated declined payment batch processing system",
+        "why": "Monthly CSV processing: parse declined payments, match customers (phone→email→name+address), validate via balance API, Day 0 SMS to all, daily priority-based outreach (High=AI calls 0-3 days before delivery, Medium=SMS 4-7 days, Low=email >7 days). Dynamic priority recalculation as delivery dates approach. Database tracking prevents duplicates and tracks outreach history.",
+        "when": "2025-01-XX"
       }
     ]
   },
@@ -112,6 +117,18 @@
       "deps": ["INTERNAL_API_KEY", "OutboundCallService"],
       "state": "active",
       "notes": "Admin endpoints for manual outbound call triggering. Used by scripts/cron jobs to initiate declined payment calls, collections calls, and delivery reminders. Not called by VAPI - these are operational/admin tools for staff to proactively contact customers."
+    },
+    "declined_payment_batch_processing": {
+      "files": [
+        "src/services/declined_payment_processor.py",
+        "src/services/priority_calculator.py",
+        "src/services/email_monitor.py",
+        "src/services/batch_orchestrator.py",
+        "src/api/admin/batch_processing.py"
+      ],
+      "deps": ["FontisClient", "OutboundCallService", "INTERNAL_API_KEY"],
+      "state": "active",
+      "notes": "Automated declined payment processing: CSV parsing, customer matching (phone→email→name+address), balance validation, Day 0 SMS, priority-based outreach (High=AI calls, Medium=SMS, Low=email). Priority calculated daily based on next delivery date (0-3 days=High, 4-7=Medium, >7=Low) and repeat declines."
     }
   },
   "debt": [],
