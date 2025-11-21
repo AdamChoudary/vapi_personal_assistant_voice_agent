@@ -11,9 +11,10 @@ Design decisions:
 - Type validation at API boundary
 """
 
+import re
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ToolParameter(BaseModel):
@@ -144,7 +145,30 @@ class FinanceDeliveryInfoTool(BaseModel):
     
     Tool ID: 68b967f63fb242cde93fbbc6e77b9752
     Endpoint: POST /tools/customer/finance-info
+    
+    NOTE: Both customerId and deliveryId are REQUIRED per Fontis API documentation.
+    Use delivery_stops tool first to obtain deliveryId.
     """
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Customer account number"
+    )
+    delivery_id: str = Field(
+        ...,
+        alias="deliveryId",
+        description="Delivery stop ID (REQUIRED - use delivery_stops tool to obtain)"
+    )
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# ===== Delivery Tool Parameters =====
+
+
+class DeliverySummaryTool(BaseModel):
+    """Parameters for delivery summary aggregator tool."""
+
     customer_id: str = Field(
         ...,
         alias="customerId",
@@ -153,13 +177,144 @@ class FinanceDeliveryInfoTool(BaseModel):
     delivery_id: str | None = Field(
         default=None,
         alias="deliveryId",
-        description="Delivery stop ID (optional, will use primary if not provided)"
+        description="Delivery stop ID (optional, resolved automatically when omitted)"
     )
-    
+    include_next_delivery: bool = Field(
+        default=True,
+        alias="includeNextDelivery",
+        description="Include next scheduled delivery lookup"
+    )
+    include_defaults: bool = Field(
+        default=True,
+        alias="includeDefaults",
+        description="Include standing order/default product summary"
+    )
+
     model_config = ConfigDict(populate_by_name=True)
 
 
-# ===== Delivery Tool Parameters =====
+class DeliveryScheduleTool(BaseModel):
+    """Parameters for delivery schedule lookup."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Customer account number"
+    )
+    delivery_id: str | None = Field(
+        default=None,
+        alias="deliveryId",
+        description="Delivery stop ID (optional, resolved automatically when omitted)"
+    )
+    from_date: str | None = Field(
+        default=None,
+        alias="fromDate",
+        description="Start date (YYYY-MM-DD). Default: 30 days ago when omitted"
+    )
+    to_date: str | None = Field(
+        default=None,
+        alias="toDate",
+        description="End date (YYYY-MM-DD). Default: 45 days ahead when omitted"
+    )
+    history_days: int = Field(
+        default=30,
+        alias="historyDays",
+        ge=0,
+        le=120,
+        description="Days in the past to include when fromDate not supplied"
+    )
+    future_days: int = Field(
+        default=45,
+        alias="futureDays",
+        ge=1,
+        le=120,
+        description="Days in the future to include when toDate not supplied"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class WorkOrderStatusTool(BaseModel):
+    """Parameters for recent work/off-route order status lookup."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Customer account number"
+    )
+    delivery_id: str | None = Field(
+        default=None,
+        alias="deliveryId",
+        description="Delivery stop ID (optional, resolved automatically when omitted)"
+    )
+    limit: int = Field(
+        default=5,
+        ge=1,
+        le=25,
+        description="Number of recent orders to return"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PricingBreakdownTool(BaseModel):
+    """Parameters for pricing breakdown across standing orders/products."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Customer account number"
+    )
+    delivery_id: str | None = Field(
+        default=None,
+        alias="deliveryId",
+        description="Delivery stop ID (optional, resolved automatically when omitted)"
+    )
+    postal_code: str = Field(
+        ...,
+        alias="postalCode",
+        min_length=3,
+        description="Postal code for price lookup"
+    )
+    internet_only: bool = Field(
+        default=False,
+        alias="internetOnly",
+        description="Restrict catalog lookup to internet/web products"
+    )
+    include_catalog_excerpt: bool = Field(
+        default=False,
+        alias="includeCatalogExcerpt",
+        description="Include a small catalog excerpt alongside standing order prices"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class OrderChangeStatusTool(BaseModel):
+    """Parameters for confirming pending order or change requests."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Customer account number"
+    )
+    delivery_id: str | None = Field(
+        default=None,
+        alias="deliveryId",
+        description="Delivery stop ID (optional, resolved automatically when omitted)"
+    )
+    ticket_number: str | None = Field(
+        default=None,
+        alias="ticketNumber",
+        description="Specific ticket number to confirm"
+    )
+    only_open_orders: bool = Field(
+        default=True,
+        alias="onlyOpenOrders",
+        description="Limit search to open/pending orders"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class NextDeliveryTool(BaseModel):
@@ -276,17 +431,43 @@ class BillingMethodsTool(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class PaymentExpiryAlertTool(BaseModel):
+    """Parameters for payment method expiry alerts tool."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Customer account number"
+    )
+    days_threshold: int = Field(
+        default=60,
+        alias="daysThreshold",
+        ge=1,
+        le=365,
+        description="Number of days before expiry to treat cards as expiring soon"
+    )
+    include_inactive: bool = Field(
+        default=False,
+        alias="includeInactive",
+        description="Include inactive or disabled payment methods"
+    )
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class ProductsTool(BaseModel):
     """
     Parameters for products catalog tool.
     
     Tool ID: 2b4ad3fcd9ea0acf476734fc7368524f
     Endpoint: POST /tools/billing/products
+    
+    Note: customerId is required for accurate customer-specific pricing.
     """
-    customer_id: str | None = Field(
-        default=None,
+    customer_id: str = Field(
+        ...,
         alias="customerId",
-        description="Customer account number (optional)"
+        description="Customer account number (required for accurate pricing)"
     )
     delivery_id: str | None = Field(
         default=None,
@@ -559,6 +740,26 @@ class SendContractTool(BaseModel):
         alias="deliveryPreference",
         description="Preferred delivery day (e.g., 'Tuesday')"
     )
+    company_name: str | None = Field(
+        default=None,
+        alias="companyName",
+        description="Company or organization name for the new account"
+    )
+    products_of_interest: list[str] | None = Field(
+        default=None,
+        alias="productsOfInterest",
+        description="List of products the customer is interested in (e.g., ['5-Gallon Bottles'])"
+    )
+    special_instructions: str | None = Field(
+        default=None,
+        alias="specialInstructions",
+        description="Any onboarding notes or delivery instructions provided by the customer"
+    )
+    marketing_opt_in: bool | None = Field(
+        default=None,
+        alias="marketingOptIn",
+        description="Whether the customer agreed to receive marketing communications"
+    )
     send_email: bool = Field(
         default=True,
         alias="sendEmail",
@@ -567,10 +768,38 @@ class SendContractTool(BaseModel):
     
     model_config = ConfigDict(populate_by_name=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_payload(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Coerce flexible payload shapes coming from Vapi/Postman."""
+        if not isinstance(values, dict):
+            return values
+
+        # Convert productsOfInterest from comma-delimited string to list
+        poi_key = "productsOfInterest"
+        if poi_key in values:
+            poi_value = values[poi_key]
+            if isinstance(poi_value, str):
+                cleaned = [item.strip() for item in poi_value.split(",") if item.strip()]
+                values[poi_key] = cleaned or None
+        elif "products_of_interest" in values and isinstance(values["products_of_interest"], str):
+            cleaned = [item.strip() for item in values["products_of_interest"].split(",") if item.strip()]
+            values["products_of_interest"] = cleaned or None
+
+        # Normalise phone numbers to E.164 if missing '+'
+        phone_key = "phone"
+        phone_value = values.get(phone_key)
+        if isinstance(phone_value, str):
+            digits = re.sub(r"\D", "", phone_value)
+            if digits and not phone_value.strip().startswith("+"):
+                values[phone_key] = f"+{digits}"
+
+        return values
+
 
 class ContractStatusTool(BaseModel):
     """
-    Parameters for checking contract status tool.
+    Parameters for checking onboarding contract submission status.
     
     Endpoint: POST /tools/onboarding/contract-status
     """
@@ -578,6 +807,110 @@ class ContractStatusTool(BaseModel):
         ...,
         alias="submissionId",
         description="JotForm submission ID from send_contract response"
+    )
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# ===== Outbound Call Tool Parameters =====
+
+
+class DeclinedPaymentCallTool(BaseModel):
+    """Parameters for declined payment outbound call."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Fontis customer ID"
+    )
+    customer_phone: str = Field(
+        ...,
+        alias="customerPhone",
+        description="Customer phone number (E.164 format)"
+    )
+    customer_name: str = Field(
+        ...,
+        alias="customerName",
+        description="Customer full name"
+    )
+    declined_amount: float | None = Field(
+        default=None,
+        alias="declinedAmount",
+        description="Amount that was declined"
+    )
+    account_balance: float | None = Field(
+        default=None,
+        alias="accountBalance",
+        description="Current account balance"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CollectionsCallTool(BaseModel):
+    """Parameters for collections outbound call."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Fontis customer ID"
+    )
+    customer_phone: str = Field(
+        ...,
+        alias="customerPhone",
+        description="Customer phone number (E.164 format)"
+    )
+    customer_name: str = Field(
+        ...,
+        alias="customerName",
+        description="Customer full name"
+    )
+    past_due_amount: float = Field(
+        ...,
+        alias="pastDueAmount",
+        description="Past due amount"
+    )
+    days_past_due: int | None = Field(
+        default=None,
+        alias="daysPastDue",
+        description="Days the account is past due"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DeliveryReminderCallTool(BaseModel):
+    """Parameters for delivery reminder outbound call or SMS."""
+
+    customer_id: str = Field(
+        ...,
+        alias="customerId",
+        description="Fontis customer ID"
+    )
+    customer_phone: str = Field(
+        ...,
+        alias="customerPhone",
+        description="Customer phone number (E.164 format)"
+    )
+    customer_name: str = Field(
+        ...,
+        alias="customerName",
+        description="Customer full name"
+    )
+    delivery_date: str = Field(
+        ...,
+        alias="deliveryDate",
+        description="Scheduled delivery date (YYYY-MM-DD)"
+    )
+    send_sms: bool = Field(
+        default=False,
+        alias="sendSms",
+        description="Send SMS instead of placing a call"
+    )
+    account_on_hold: bool = Field(
+        default=False,
+        alias="accountOnHold",
+        description="Account is past due/on hold"
     )
     
     model_config = ConfigDict(populate_by_name=True)

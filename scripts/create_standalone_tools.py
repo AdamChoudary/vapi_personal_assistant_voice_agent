@@ -19,153 +19,8 @@ BACKEND_URL = "https://fontis-voice-agent.fly.dev"
 
 # Tool definitions matching our setup_new_assistant_complete.py
 STANDALONE_TOOLS = [
-    {
-        "name": "customer_search",
-        "description": "Search for customers by name, account number, phone, or address. ALWAYS use this first when customer provides any identifier.",
-        "url": f"{BACKEND_URL}/tools/customer/search-vapi",
-        "parameters": {
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search term: customer name, account number, phone, or address"
-                },
-                "offset": {"type": "number", "default": 0},
-                "take": {"type": "number", "default": 25}
-            }
-        }
-    },
-    {
-        "name": "customer_details",
-        "description": "Get detailed customer information using internal customerId from customer_search results.",
-        "url": f"{BACKEND_URL}/tools/customer/details",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Internal customer ID from customer_search"}
-            }
-        }
-    },
-    {
-        "name": "finance_info",
-        "description": "Get customer financial summary (balance, last payment) and delivery information.",
-        "url": f"{BACKEND_URL}/tools/customer/finance-info",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"},
-                "deliveryId": {"type": "string", "description": "Optional delivery ID (auto-fetched if not provided)"}
-            }
-        }
-    },
-    {
-        "name": "delivery_stops",
-        "description": "Get all delivery locations for a customer.",
-        "url": f"{BACKEND_URL}/tools/delivery/stops",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"}
-            }
-        }
-    },
-    {
-        "name": "next_scheduled_delivery",
-        "description": "Get customer's next scheduled delivery date, time window, and products.",
-        "url": f"{BACKEND_URL}/tools/delivery/next-scheduled",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId", "deliveryId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"},
-                "deliveryId": {"type": "string", "description": "Delivery ID from finance_info or delivery_stops"},
-                "daysAhead": {"type": "number", "default": 45, "description": "Days ahead to search (max 90)"}
-            }
-        }
-    },
-    {
-        "name": "default_products",
-        "description": "Get customer's standing order - products they regularly receive.",
-        "url": f"{BACKEND_URL}/tools/delivery/default-products",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId", "deliveryId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"},
-                "deliveryId": {"type": "string", "description": "Delivery ID from delivery_stops"}
-            }
-        }
-    },
-    {
-        "name": "search_orders",
-        "description": "Search for delivery orders by customer.",
-        "url": f"{BACKEND_URL}/tools/delivery/orders/search",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId", "deliveryId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID"},
-                "deliveryId": {"type": "string", "description": "Delivery ID"},
-                "ticketNumber": {"type": "string", "description": "Optional ticket number"}
-            }
-        }
-    },
-    {
-        "name": "account_balance",
-        "description": "Get customer's current account balance, total due, and past due amounts.",
-        "url": f"{BACKEND_URL}/tools/billing/balance",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"}
-            }
-        }
-    },
-    {
-        "name": "invoice_history",
-        "description": "Get detailed invoice and payment history for a customer.",
-        "url": f"{BACKEND_URL}/tools/billing/invoice-history",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId", "deliveryId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"},
-                "deliveryId": {"type": "string", "description": "Delivery ID from delivery_stops"},
-                "numberOfMonths": {"type": "number", "default": 12, "description": "Months of history (max 24)"}
-            }
-        }
-    },
-    {
-        "name": "invoice_detail",
-        "description": "Get detailed line items for a specific invoice.",
-        "url": f"{BACKEND_URL}/tools/billing/invoice-detail",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId", "invoiceKey", "invoiceDate"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID"},
-                "invoiceKey": {"type": "string", "description": "Invoice key from invoice_history"},
-                "invoiceDate": {"type": "string", "description": "Invoice date (YYYY-MM-DD)"}
-            }
-        }
-    },
-    {
-        "name": "payment_methods",
-        "description": "Get payment methods on file for customer (credit cards, ACH).",
-        "url": f"{BACKEND_URL}/tools/billing/payment-methods",
-        "parameters": {
-            "type": "object",
-            "required": ["customerId"],
-            "properties": {
-                "customerId": {"type": "string", "description": "Customer ID from customer_search"}
-            }
-        }
-    },
+
+       
     {
         "name": "products",
         "description": "Get product catalog with prices. Use when customer asks about available products or pricing.",
@@ -207,12 +62,102 @@ STANDALONE_TOOLS = [
         }
     },
     {
+        "name": "payment_expiry_alerts",
+        "description": "Identify payment methods that are expired or expiring soon so customers can update them.",
+        "url": f"{BACKEND_URL}/tools/billing/payment-expiry-alerts",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer ID"},
+                "daysThreshold": {"type": "integer", "description": "Days before expiry to trigger alert"},
+                "includeInactive": {"type": "boolean", "description": "Include inactive payment methods"}
+            }
+        }
+    },
+    {
+        "name": "delivery_summary",
+        "description": "Summarize delivery route, driver assignment, equipment, and next delivery details for a customer.",
+        "url": f"{BACKEND_URL}/tools/delivery/summary",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "includeNextDelivery": {"type": "boolean", "description": "Include next scheduled delivery lookup"},
+                "includeDefaults": {"type": "boolean", "description": "Include standing order/default product summary"}
+            }
+        }
+    },
+    {
+        "name": "delivery_schedule",
+        "description": "Retrieve future and recent scheduled deliveries including completion or skip status.",
+        "url": f"{BACKEND_URL}/tools/delivery/schedule",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "fromDate": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "toDate": {"type": "string", "description": "End date (YYYY-MM-DD)"},
+                "historyDays": {"type": "integer", "description": "Days in the past when fromDate omitted"},
+                "futureDays": {"type": "integer", "description": "Days in the future when toDate omitted"}
+            }
+        }
+    },
+    {
+        "name": "work_order_status",
+        "description": "Check recent off-route deliveries or service work orders for a customer stop.",
+        "url": f"{BACKEND_URL}/tools/delivery/work-orders",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "limit": {"type": "integer", "description": "Number of recent orders to return"}
+            }
+        }
+    },
+    {
+        "name": "pricing_breakdown",
+        "description": "Provide standing order pricing totals and optional catalog excerpt for the customer.",
+        "url": f"{BACKEND_URL}/tools/delivery/pricing-breakdown",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId", "postalCode"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "postalCode": {"type": "string", "description": "Postal code for pricing lookup"},
+                "internetOnly": {"type": "boolean", "description": "Restrict catalog to internet/web products"},
+                "includeCatalogExcerpt": {"type": "boolean", "description": "Include sample catalog pricing"}
+            }
+        }
+    },
+    {
+        "name": "order_change_status",
+        "description": "Confirm whether a pending order change or special delivery ticket exists for the customer.",
+        "url": f"{BACKEND_URL}/tools/delivery/order-change-status",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "ticketNumber": {"type": "string", "description": "Specific ticket number to confirm"},
+                "onlyOpenOrders": {"type": "boolean", "description": "Only list open/pending orders"}
+            }
+        }
+    },
+    {
         "name": "send_contract",
         "description": "Send onboarding contract to new customer via JotForm. Use for new customer signups only.",
         "url": f"{BACKEND_URL}/tools/onboarding/send-contract",
         "parameters": {
             "type": "object",
-            "required": ["customerName", "email", "phone", "address", "city", "state", "postalCode"],
             "properties": {
                 "customerName": {"type": "string", "description": "Full customer name"},
                 "email": {"type": "string", "description": "Customer email address"},
@@ -220,7 +165,69 @@ STANDALONE_TOOLS = [
                 "address": {"type": "string", "description": "Street address"},
                 "city": {"type": "string", "description": "City name"},
                 "state": {"type": "string", "description": "State code (2 letters)"},
-                "postalCode": {"type": "string", "description": "ZIP/postal code"}
+                "postalCode": {"type": "string", "description": "ZIP/postal code"},
+                "deliveryPreference": {"type": "string", "description": "Preferred delivery day"},
+                "companyName": {"type": "string", "description": "Company or organization name"},
+                "productsOfInterest": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Customer-selected products"
+                },
+                "specialInstructions": {"type": "string", "description": "Special instructions or notes"},
+                "marketingOptIn": {"type": "boolean", "description": "Customer opted into marketing updates"},
+                "sendEmail": {"type": "boolean", "description": "Send contract email via JotForm (default true)"}
+            },
+            "required": ["customerName", "email", "phone", "address", "city", "state", "postalCode"]
+        }
+    },
+
+    # OUTBOUND CALL TOOLS
+    {
+        "name": "declined_payment_call",
+        "description": "Initiate a declined payment outreach call to notify the customer about a failed payment and request updated information.",
+        "url": f"{BACKEND_URL}/admin/outbound/declined-payment",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId", "customerPhone", "customerName"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Fontis customer ID"},
+                "customerPhone": {"type": "string", "description": "Customer phone number in E.164 format"},
+                "customerName": {"type": "string", "description": "Customer name"},
+                "declinedAmount": {"type": "number", "description": "Amount that was declined"},
+                "accountBalance": {"type": "number", "description": "Current account balance"}
+            }
+        }
+    },
+    {
+        "name": "collections_call",
+        "description": "Initiate a collections call for a past-due account to discuss outstanding balances and next steps.",
+        "url": f"{BACKEND_URL}/admin/outbound/collections",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId", "customerPhone", "customerName", "pastDueAmount"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Fontis customer ID"},
+                "customerPhone": {"type": "string", "description": "Customer phone number in E.164 format"},
+                "customerName": {"type": "string", "description": "Customer name"},
+                "pastDueAmount": {"type": "number", "description": "Past due amount"},
+                "daysPastDue": {"type": "integer", "description": "Days the account is past due"}
+            }
+        }
+    },
+    {
+        "name": "delivery_reminder_call",
+        "description": "Send a delivery reminder by phone or SMS, optionally warning about account holds before scheduled service.",
+        "url": f"{BACKEND_URL}/admin/outbound/delivery-reminder",
+        "parameters": {
+            "type": "object",
+            "required": ["customerId", "customerPhone", "customerName", "deliveryDate"],
+            "properties": {
+                "customerId": {"type": "string", "description": "Fontis customer ID"},
+                "customerPhone": {"type": "string", "description": "Customer phone number in E.164 format"},
+                "customerName": {"type": "string", "description": "Customer name"},
+                "deliveryDate": {"type": "string", "description": "Scheduled delivery date (YYYY-MM-DD)"},
+                "sendSms": {"type": "boolean", "description": "Send an SMS instead of placing a call"},
+                "accountOnHold": {"type": "boolean", "description": "Account is on hold or past due"}
             }
         }
     }
@@ -358,23 +365,23 @@ async def create_or_update_tool(client: httpx.AsyncClient, tool_def: dict[str, A
 async def main() -> int:
     """Main execution."""
     if not VAPI_API_KEY or not INTERNAL_API_KEY:
-        print("❌ Missing VAPI_API_KEY or INTERNAL_API_KEY")
+        print("ERROR: Missing VAPI_API_KEY or INTERNAL_API_KEY")
         return 1
     
     print("=" * 80)
-    print("🔧 CREATING STANDALONE VAPI TOOLS FOR DASHBOARD")
+    print("=== CREATING STANDALONE VAPI TOOLS FOR DASHBOARD ===")
     print("=" * 80)
     print(f"Backend URL: {BACKEND_URL}")
     print(f"Tools: {len(STANDALONE_TOOLS)}")
     print()
     
     async with httpx.AsyncClient() as client:
-        print("1️⃣ Fetching existing tools...")
+        print("STEP 1: Fetching existing tools...")
         existing_tools = await get_existing_tools(client)
         print(f"   Found {len(existing_tools)} existing tools")
         print()
         
-        print("2️⃣ Creating/updating tools...")
+        print("STEP 2: Creating/updating tools...")
         created = 0
         updated = 0
         failed = 0
@@ -386,26 +393,26 @@ async def main() -> int:
                     created += 1
                 else:
                     updated += 1
-                print(f"   ✓ {message}")
+                print(f"   OK {message}")
             else:
                 failed += 1
-                print(f"   ✗ {message}")
+                print(f"   ERROR {message}")
         
         print()
         print("=" * 80)
-        print("✅ TOOL CREATION COMPLETE")
+        print("TOOL CREATION COMPLETE")
         print("=" * 80)
         print(f"   Created: {created}")
         print(f"   Updated: {updated}")
         print(f"   Failed: {failed}")
         print()
-        print("📋 Next Steps:")
-        print("   1. Go to VAPI Dashboard → Tools section")
+        print("Next Steps:")
+        print("   1. Go to VAPI Dashboard -> Tools section")
         print("   2. Refresh the page (Ctrl+F5 or Cmd+Shift+R)")
         print("   3. You should see all tools listed")
         print("   4. Tools can be added to assistants from the Tools section")
         print()
-        print("🔗 Dashboard: https://dashboard.vapi.ai/tools")
+        print("Dashboard: https://dashboard.vapi.ai/tools")
         print()
         
         return 0 if failed == 0 else 1

@@ -25,6 +25,164 @@ BACKEND_URL = "https://fontis-voice-agent.fly.dev"
 
 SYSTEM_PROMPT = """You are Riley, a friendly and professional AI assistant for Fontis Water. Your role is to help customers with their water delivery accounts, billing inquiries, service questions, and new customer onboarding.
 
+## About Fontis Water
+
+Fontis Water is a locally owned and operated bottled water delivery company based in Marietta, Georgia, sourcing fresh spring water from the Blue Ridge Mountains. We provide bottled water, filtration systems, coffee service, and custom-labeled water to residential and commercial customers throughout the greater Atlanta metro area.
+
+**Key Company Facts:**
+- **Location**: Atlanta-based, family-owned (not a faceless national chain)
+- **Water Source**: Fresh spring water from the Blue Ridge Mountains of North Georgia
+- **Service Area**: Greater Atlanta metro area
+- **Delivery Model**: Neighborhood delivery routes (not on-demand like Amazon) - this keeps costs low and ensures consistent service
+- **Tone**: Friendly, local, confident - emphasize that Fontis is Atlanta-based and family-owned
+
+## Products & Services Overview
+
+### 1. Bottled Water Delivery
+
+**Water Types Available:**
+- **Spring Water**: 100% natural spring water from North Georgia mountains
+  - Available in: 5-gallon ($9.00), 3-gallon ($7.00), 16.9oz cases 24-pack ($11.50), 8oz bottles 24-pack ($10.50)
+- **Purified Water**: Natural spring water filtered through reverse osmosis
+  - Available in: 5-gallon only ($9.00)
+- **Distilled Water**: Spring water purified through steam distillation (99.9% pure H2O)
+  - Available in: 5-gallon ($9.00), 3-gallon ($7.00), 1-gallon 6-pack ($16.00)
+
+**Pricing & Delivery:**
+- **5-Gallon Bottles**: $9.00 each (all water types)
+- **3-Gallon Bottles**: $7.00 each (spring or distilled)
+- **16.9oz Cases (24-pack)**: $11.50 each (Spring water only)
+- **8oz Bottles (24-pack)**: $10.50 each (Spring water only)
+- **1-Gallon (6-pack)**: $16.00 each (Distilled water only)
+- **Standard Delivery Fee**: $3.30 per route stop
+- **Off-Route / Urgent Delivery**: $25.00 per delivery (available outside regular route schedule)
+- **Delivery Frequency**: Every 20 business days (≈13 deliveries per year, roughly every 4 weeks)
+- **First Delivery Minimum**: 3 bottles (any combination of sizes)
+- **Subsequent Orders**: No minimum required (customers may skip deliveries as needed)
+
+**Deposit Policy:**
+- **Cooler Renters**: No bottle deposit required
+- **Water-Only Customers**: $7 refundable deposit per bottle
+- **Common Phrase**: "You'll only pay for the bottles you exchange."
+
+### 2. Water Cooler Rentals
+
+| Cooler Type | Monthly Rental | Best For |
+|-------------|----------------|----------|
+| Room Temp / Cold (Top Load) | $10/month | Budget-conscious customers, small spaces |
+| Hot / Cold (Top Load) | $12/month | Most popular - offices, homes, general use |
+| Bottom Load (Hot / Cold) | $15/month | Customers who don't want to lift bottles, upscale offices |
+| Ceramic Crock & Stand | $5/month | Non-electric, traditional water dispensing |
+
+**Cooler Rental Terms:**
+- **Minimum Rental Period**: 12 months
+- **Renewal**: Automatically renews annually
+- **Maintenance**: Included at no extra cost (Fontis maintains and cleans as needed)
+- **Early Termination Fee**: $100 or remaining balance, whichever is greater
+- **Delivery Fee**: $3.30 per route stop (same as water delivery)
+
+### 3. Water Filtration Systems (POU - Point of Use)
+
+POU systems connect directly to a water line and provide filtered hot and cold water on demand. No bottle exchanges needed - perfect for offices and high-volume users.
+
+**Installation Fee**: $75 one-time per unit
+
+**POU Models:**
+- **Countertop Hot & Cold**: $39.95/month - Compact for small offices
+- **Standard Standalone Hot & Cold**: $39.95/month - Standard size floor model
+- **Deluxe Standalone Hot & Cold**: $50.00/month - Larger tank + higher output for high-traffic areas
+- **Premium Executive Design**: $70.00/month - Sleek European styling
+- **Deluxe with Ice Maker**: $170.00/month - Premium unit with built-in ice making
+
+**POU Features:**
+- Uses Everpure's Micro-Pure® precoat technology (six times the surface area of traditional filters)
+- Includes installation, maintenance, annual filter changes
+- No bottle exchanges needed
+- Ideal for offices or high-volume users
+
+### 4. Private Label Water
+
+Custom-printed bottled water with company branding for corporate marketing, events, and hospitality.
+
+**Available Options:**
+- **Bottle Sizes**: 8 oz, 12 oz, 16.9 oz (all 24 bottles per case)
+- **Water Types**: Spring Water (+$0.50 per case) or Purified Water (included)
+- **Bottle Styles**: Ribbed Bottle (included) or Bullet Bottle (+$0.30 per case for 16.9oz)
+- **Label Types**: Standard Labels (included) or Clear Labels (+$0.50 per case)
+
+**Pricing (Base Price per Case):**
+- 25-40 cases: $14.60 (8oz), $14.65 (12oz), $14.75 (16.9oz)
+- 72-144 cases: $14.00 (8oz), $14.05 (12oz), $14.10 (16.9oz)
+- 216+ cases: $13.55 (8oz), $13.60 (12oz), $13.65 (16.9oz)
+
+**Additional Fees:**
+- **One-Time Setup Fee**: $50.00 (artwork preparation and first-time production setup)
+- **Small Order Surcharge**: $25.00 (applies to orders under 40 cases)
+- **Production Time**: 4-6 weeks from order submission and final approved artwork
+- **Minimum Order**: 25 cases
+- **Artwork Requirements**: High-resolution PDF, AI (Adobe Illustrator), or EPS format
+
+### 5. Coffee & Tea Products
+
+Fontis offers a complete coffee and tea service program that can be combined with water delivery for one convenient account.
+
+**Available Products:**
+- Premium office coffee brands
+- Single-serve pods (K-Cup compatible)
+- Ground coffee and whole bean options
+- Decaf and flavored varieties
+- Black, green, herbal, and specialty teas
+- Hot tea bags and iced tea mixes
+
+**Brewer Rental Program:**
+- Brewer equipment included FREE with coffee/tea purchase
+- Monthly minimum spend on coffee and tea products required
+- No contract - month-to-month agreement
+- Delivered with your water order on regular route
+
+**Note**: For detailed coffee/tea pricing and brewer minimums, escalate to Coffee Specialist or Sales Specialist.
+
+## Service Agreements & Policies
+
+### Contract Terms
+
+| Customer Type | Term | Renewal | Cancellation |
+|---------------|------|---------|--------------|
+| Water-Only | Month-to-Month | Auto-renews monthly | None - may cancel anytime |
+| Cooler Rentals | 12-Month | Auto-renews annually | $100 or remaining balance, whichever is greater |
+| Combined Accounts | Both apply | Respective renewals | Same policy per service type |
+
+### Cancellation Policy
+- **Water-Only Customers**: May cancel anytime
+- **Cooler Rentals**: Subject to $100 early termination fee or balance of remaining months, whichever is greater
+- Customers must return bottles and equipment to avoid non-return fees ($7 per bottle if unreturned)
+
+### Delivery Operations
+- **Frequency**: Every 20 business days (standard route model)
+- **Notification**: Customers receive email reminder a few days prior to delivery
+- **Skip Option**: If customers reply to skip, no fee is charged
+- **First Delivery Window**: 1-5 business days after signing service agreement
+- **Route-Based Efficiency**: Fontis operates neighborhood delivery routes to keep costs low and ensure consistent service
+
+### Billing & Payments
+- **Billing Frequency**: Monthly consolidated charge (combining water, rental, and delivery fees)
+- **Billing Date**: Statements generated and cards charged on the last day of each month
+- **Auto-Pay**: Required for residential customers; optional for commercial customers
+- **ACH & Credit Cards**: Accepted; customers may update payment online via fontiswater.com/account
+- **Late Payments**: Accounts move to "credit hold" status; deliveries are paused until balance is cleared
+- **Declined Payments**: Trigger friendly reminder texts sent automatically, plus outbound call + SMS from AI agent
+
+## When to Escalate
+
+Route to live representative for:
+- Business accounts with multiple delivery locations
+- Requests for custom labeling or bulk filtration installs
+- Billing disputes or payment declines not resolved by retry
+- Contract or service agreement questions beyond basic terms
+- Cancellation requests
+- Coffee/tea product questions (Coffee Specialist)
+- Other beverages or breakroom supplies (Sales Specialist)
+
 ## ⚠️ CRITICAL RULES - READ FIRST ⚠️
 
 **NEVER ANSWER WITHOUT CALLING A TOOL**
@@ -87,9 +245,10 @@ Assistant: "Perfect! How can I help you today?"
   * When: Need to refresh customer data during conversation
   
 - **finance_info**: Combined billing and delivery snapshot
-  * Input: customerId (and optional deliveryId - auto-fetched if not provided)
-  * Returns: Last payment date, current balance, delivery route/day, deliveryIds
-  * Use: When summarizing account status or need deliveryId for other tools
+  * Input: customerId AND deliveryId (BOTH REQUIRED - use delivery_stops first to get deliveryId)
+  * Returns: Last payment date, current balance, delivery route/day
+  * Use: When summarizing account status ("What do I owe?" or "When is my next delivery?")
+  * Note: deliveryId is REQUIRED - call delivery_stops first to obtain it
 
 ### Delivery Tools:
 - **delivery_stops**: Get all delivery locations for a customer
@@ -141,13 +300,20 @@ Assistant: "Perfect! How can I help you today?"
   * Use: For new customer inquiries or "How much is a case of water?"
 
 ### Contract & Route Tools:
-- **get_contracts**: Get service agreements and contracts
+- **get_contracts / customer_contracts**: Get service agreements and contracts
   * Required: customerId, deliveryId
   * Returns: Active/historical agreements, start/end dates, renewal terms
   * Notes:
     - Water-only = month-to-month
     - Equipment rental = 12-month auto-renewing with $100 early termination fee
-  
+    - Treat `customer_contracts` as an alias of `get_contracts`
+
+- **contract_status**: Check status of a submitted onboarding contract
+  * Required: submission_id
+  * Returns: Submission status (PENDING, COMPLETE, EXPIRED), timestamps, form data
+  * Use: When customer asks whether their paperwork was received/completed
+  * NEVER share internal submission IDs with customers; speak generally ("Your agreement was completed on…")
+
 - **route_stops**: Get all stops on a route for a specific date
   * Required: routeDate (YYYY-MM-DD), route (route code)
   * Optional: accountNumber or deliveryId (to filter to single customer)
@@ -158,12 +324,35 @@ Assistant: "Perfect! How can I help you today?"
     - skipReason present → delivery skipped (most common: "No Bottles Out")
     - Use **next_scheduled_delivery** for future deliveries
 
-### Onboarding Tool:
+### Onboarding Tools:
 - **send_contract**: Send onboarding contract via JotForm to new customer
   * Required: customerName, email, phone, address, city, state, postalCode
   * When: Customer expresses interest in signing up for service
   * Action: Generates pre-filled contract form link and emails it to customer
   * Tell customer: "I'll send you a service agreement form via email. Please complete it, and we'll set up your account within 24 hours."
+- **contract_status** (see above): Use POST endpoint when you already have a submission ID and need to confirm completion
+
+### Outbound Call Tools (Use ONLY when explicitly instructed by Fontis staff):
+- **declined_payment_call**: Initiate outreach for a recent payment decline
+  * Required: customerId, customerPhone, customerName; optional declinedAmount, accountBalance
+  * Confirms call initiated; AI must NOT fabricate payment outcomes—only report status returned
+- **collections_call**: Trigger collections follow-up for past-due accounts
+  * Required: customerId, customerPhone, customerName, pastDueAmount; optional daysPastDue
+  * Use when internal staff or workflow requests a collections call
+- **delivery_reminder_call**: Send delivery reminder (call or SMS) before a route day
+  * Required: customerId, customerPhone, customerName, deliveryDate; optional sendSms, accountOnHold
+  * If accountOnHold is true, remind customer delivery will not occur until balance resolved
+  * Respect `sendSms`: true → use SMS path; false → place reminder call
+  * Provide confirmation back to staff with the call or SMS ID returned by the tool
+
+## Metadata Context For Outbound Automations
+- Operations workflows attach metadata such as `call_type`, `call_reason_summary`, `customer_id`, `call_amount_display`, `call_delivery_date`, and `outbound_source`.
+- Treat metadata values as trusted operational context. Mention the reason for the call **after** identity verification so sensitive information is only shared once the contact is confirmed.
+- Use metadata to guide the conversation flow (e.g., if `call_type` is `declined_payment`, focus on helping with payment issues; if `call_type` is `delivery_reminder`, confirm the upcoming delivery date).
+- Even when metadata includes customerId or other identifiers, you MUST still verify at least two identifiers with the customer before discussing account details.
+- If metadata provides amounts or dates, note them internally, verify the customer, then read the information back and use the appropriate tools to gather any additional detail needed.
+
+**Outbound Policy:** These automations are for Fontis operations—never offer them directly to customers. Only trigger when explicitly requested by staff instructions, batch workflows, or admin tooling. Always echo back the action taken and the returned call status/ID.
 
 ## Conversation Guidelines
 
@@ -335,9 +524,9 @@ API_REQUEST_TOOLS = [
             "type": "object",
             "properties": {
                 "customerId": {"type": "string", "description": "Customer ID from customer_search"},
-                "deliveryId": {"type": "string", "description": "Optional delivery ID (auto-fetched if not provided)"}
+                "deliveryId": {"type": "string", "description": "Delivery ID from delivery_stops (REQUIRED - use delivery_stops first to obtain)"}
             },
-            "required": ["customerId"]
+            "required": ["customerId", "deliveryId"]
         }
     },
     {
@@ -486,6 +675,25 @@ API_REQUEST_TOOLS = [
         }
     },
     {
+        "name": "payment_expiry_alerts",
+        "description": "Identify payment methods that are expired or expiring soon so you can prompt the customer to update them.",
+        "url": f"{BACKEND_URL}/tools/billing/payment-expiry-alerts",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {INTERNAL_API_KEY}"
+        },
+        "body": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "daysThreshold": {"type": "integer", "description": "Days before expiry to trigger alert (default 60)"},
+                "includeInactive": {"type": "boolean", "description": "Include inactive payment methods"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
         "name": "products",
         "description": "Get product catalog with prices. Use when customer asks about available products or pricing.",
         "url": f"{BACKEND_URL}/tools/billing/products",
@@ -541,6 +749,108 @@ API_REQUEST_TOOLS = [
         }
     },
     {
+        "name": "delivery_summary",
+        "description": "Summarize delivery route, driver assignment, equipment, and next delivery details for a customer.",
+        "url": f"{BACKEND_URL}/tools/delivery/summary",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {INTERNAL_API_KEY}"
+        },
+        "body": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "includeNextDelivery": {"type": "boolean", "description": "Include next scheduled delivery lookup"},
+                "includeDefaults": {"type": "boolean", "description": "Include standing order/default product summary"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
+        "name": "delivery_schedule",
+        "description": "Retrieve scheduled deliveries for a customer including completion and skip status.",
+        "url": f"{BACKEND_URL}/tools/delivery/schedule",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {INTERNAL_API_KEY}"
+        },
+        "body": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "fromDate": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "toDate": {"type": "string", "description": "End date (YYYY-MM-DD)"},
+                "historyDays": {"type": "integer", "description": "Days in past when fromDate omitted"},
+                "futureDays": {"type": "integer", "description": "Days in future when toDate omitted"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
+        "name": "work_order_status",
+        "description": "Check recent off-route deliveries or service work orders for a customer stop.",
+        "url": f"{BACKEND_URL}/tools/delivery/work-orders",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {INTERNAL_API_KEY}"
+        },
+        "body": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "limit": {"type": "integer", "description": "Number of recent orders to return"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
+        "name": "pricing_breakdown",
+        "description": "Provide standing order pricing totals and optional catalog excerpt for the customer.",
+        "url": f"{BACKEND_URL}/tools/delivery/pricing-breakdown",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {INTERNAL_API_KEY}"
+        },
+        "body": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "postalCode": {"type": "string", "description": "Postal code for pricing lookup"},
+                "internetOnly": {"type": "boolean", "description": "Restrict catalog to internet/web products"},
+                "includeCatalogExcerpt": {"type": "boolean", "description": "Include sample catalog pricing"}
+            },
+            "required": ["customerId", "postalCode"]
+        }
+    },
+    {
+        "name": "order_change_status",
+        "description": "Confirm whether a pending order change or special delivery ticket exists for the customer.",
+        "url": f"{BACKEND_URL}/tools/delivery/order-change-status",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {INTERNAL_API_KEY}"
+        },
+        "body": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "ticketNumber": {"type": "string", "description": "Specific ticket number to confirm"},
+                "onlyOpenOrders": {"type": "boolean", "description": "Only list open/pending orders"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
         "name": "send_contract",
         "description": "Send onboarding contract to new customer via JotForm. Use for new customer signups only.",
         "url": f"{BACKEND_URL}/tools/onboarding/send-contract",
@@ -558,7 +868,17 @@ API_REQUEST_TOOLS = [
                 "address": {"type": "string", "description": "Street address"},
                 "city": {"type": "string", "description": "City name"},
                 "state": {"type": "string", "description": "State code (2 letters)"},
-                "postalCode": {"type": "string", "description": "ZIP/postal code"}
+                "postalCode": {"type": "string", "description": "ZIP/postal code"},
+                "deliveryPreference": {"type": "string", "description": "Preferred delivery day"},
+                "companyName": {"type": "string", "description": "Company or organization name"},
+                "productsOfInterest": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Products the customer would like (e.g., 5-gallon bottles)"
+                },
+                "specialInstructions": {"type": "string", "description": "Additional notes or instructions"},
+                "marketingOptIn": {"type": "boolean", "description": "Marketing opt-in acknowledgement"},
+                "sendEmail": {"type": "boolean", "description": "Send contract via email (default true)"}
             },
             "required": ["customerName", "email", "phone", "address", "city", "state", "postalCode"]
         }

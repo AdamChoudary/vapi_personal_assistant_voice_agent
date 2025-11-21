@@ -318,8 +318,9 @@ app.include_router(onboarding.router)
 app.include_router(routes.router)
 
 # Admin routes
-from src.api.admin import outbound_calls
+from src.api.admin import outbound_calls, batch_processing
 app.include_router(outbound_calls.router)
+app.include_router(batch_processing.router)
 
 # Mount static files for voice test interface
 app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -12,9 +12,10 @@ All endpoints require API key authentication (internal_api_key).
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.core.security import verify_api_key
-from src.schemas.tools import SendContractTool
+from src.schemas.tools import SendContractTool, ContractStatusTool
 from src.services.jotform_client import JotFormClient
 from src.core.exceptions import JotFormError
+from src.services.twilio_service import TwilioService
 
 router = APIRouter(prefix="/tools/onboarding", tags=["tools-onboarding"])
 
@@ -36,126 +37,117 @@ async def get_jotform_client() -> JotFormClient:
         raise HTTPException(status_code=503, detail=str(e))
 
 
+async def execute_send_contract(params: SendContractTool, jotform: JotFormClient) -> dict:
+    """
+    Shared implementation for sending or generating JotForm contracts.
+    """
+    additional_fields = {
+        "delivery_preference": params.delivery_preference,
+        "company_name": params.company_name,
+        "products_of_interest": params.products_of_interest,
+        "special_instructions": params.special_instructions,
+        "marketing_opt_in": params.marketing_opt_in,
+    }
+    additional_fields = {
+        key: value for key, value in additional_fields.items() if value not in (None, "", [])
+    }
+
+    sms_sent = False
+
+    if params.send_email:
+        result = await jotform.send_contract_email(
+            customer_name=params.customer_name,
+            email=params.email,
+            phone=params.phone,
+            address=params.address,
+            city=params.city,
+            state=params.state,
+            postal_code=params.postal_code,
+            **additional_fields,
+        )
+
+        sms_error: str | None = None
+
+        contract_data = {
+            "success": True,
+            "message": "Contract sent successfully via email" if result.get("email_sent") else result.get("message", "Contract link generated"),
+            "data": {
+                "contract_url": result["form_url"],
+                "form_id": result["form_id"],
+                "email_sent": result.get("email_sent", False),
+                "customer_name": params.customer_name,
+                "email": params.email,
+                "prefill": result.get("prefill", {}),
+                "sms_sent": sms_sent,
+            },
+        }
+
+        if not result.get("email_sent", False):
+            twilio = TwilioService()
+            if twilio.enabled:
+                sms_body = (
+                    f"Hi {params.customer_name}, here is your Fontis Water agreement: {result['form_url']}"
+                )
+                sms_sent, sms_error = twilio.send_sms(params.phone, sms_body)
+                contract_data["data"]["sms_sent"] = sms_sent
+                if sms_error:
+                    contract_data["data"]["sms_error"] = sms_error
+                if sms_sent:
+                    contract_data["message"] = "Contract link shared via SMS (JotForm email invitations unavailable)."
+                elif sms_error:
+                    contract_data["message"] = "Contract link generated, but SMS delivery failed."
+            else:
+                sms_error = "Twilio is not configured."
+                contract_data["data"]["sms_error"] = sms_error
+
+        if not sms_sent and sms_error is None:
+            contract_data["data"]["sms_error"] = "SMS delivery not attempted."
+
+        return contract_data
+
+    result = await jotform.create_contract_link(
+        customer_name=params.customer_name,
+        email=params.email,
+        phone=params.phone,
+        address=params.address,
+        city=params.city,
+        state=params.state,
+        postal_code=params.postal_code,
+        **additional_fields,
+    )
+
+    return {
+        "success": True,
+        "message": "Contract link generated successfully",
+        "data": {
+            "contract_url": result["url"],
+            "form_id": result["form_id"],
+            "email_sent": False,
+            "sms_sent": False,
+            "sms_error": "SMS delivery not attempted.",
+            "customer_name": params.customer_name,
+            "email": params.email,
+            "prefill": result.get("prefill", {}),
+        },
+    }
+
+
 @router.post("/send-contract", dependencies=[Depends(verify_api_key)])
 async def send_onboarding_contract(
     params: SendContractTool,
-    jotform: JotFormClient = Depends(get_jotform_client)
+    jotform: JotFormClient = Depends(get_jotform_client),
 ) -> dict:
     """
     Send or generate onboarding contract link for new customers.
-    
-    Tool ID: TBD
-    Fontis Endpoint: N/A (JotForm integration)
-    Method: SendContractViaJotForm
-    
-    Purpose:
-    Generate and optionally send pre-filled service agreement contract to prospective customers.
-    Used during new customer onboarding to collect signatures and agreement terms.
-    
-    Behavior:
-    - Generates unique, pre-filled JotForm contract link
-    - Optionally emails the link to customer
-    - Returns contract URL for reference
-    - Link is valid indefinitely until submitted
-    
-    AI Usage Guidelines:
-    - Use when customer expresses interest in signing up for Fontis service
-    - Confirm all required information before sending (name, email, address)
-    - Always inform customer they'll receive the contract via email
-    - Explain next steps: "Complete the agreement form, and we'll set up your account"
-    - Do not promise immediate service start (requires contract completion)
-    
-    Notes:
-    - Contract must be completed before account creation in Fontis
-    - Follow-up is handled by Fontis operations team
-    - Contract includes service terms, pricing, and equipment rental agreements
-    
-    Args:
-        params: Contract generation parameters (name, email, address, etc.)
-        jotform: JotForm client dependency
-    
-    Returns:
-        dict: Contains contract URL, form ID, and send status
-    
-    Raises:
-        HTTPException: If contract generation or sending fails
-    
-    Example Response:
-        {
-            "success": true,
-            "message": "Contract sent successfully",
-            "data": {
-                "contract_url": "https://form.jotform.com/xxxxx?name=John...",
-                "form_id": "xxxxx",
-                "email_sent": true,
-                "customer_name": "John Doe",
-                "email": "john@example.com"
-            }
-        }
     """
     try:
-        # Build additional fields for JotForm
-        additional_fields = {}
-        if params.delivery_preference:
-            additional_fields["deliveryPreference"] = params.delivery_preference
-        
-        # Decide whether to send email or just generate link
-        if params.send_email:
-            # Send contract via email
-            result = await jotform.send_contract_email(
-                customer_name=params.customer_name,
-                email=params.email,
-                phone=params.phone,
-                address=params.address,
-                city=params.city,
-                state=params.state,
-                postal_code=params.postal_code,
-                **additional_fields
-            )
-            
-            return {
-                "success": True,
-                "message": "Contract sent successfully via email",
-                "data": {
-                    "contract_url": result["form_url"],
-                    "form_id": result["form_id"],
-                    "email_sent": True,
-                    "customer_name": params.customer_name,
-                    "email": params.email
-                }
-            }
-        else:
-            # Just generate the link without sending email
-            result = await jotform.create_contract_link(
-                customer_name=params.customer_name,
-                email=params.email,
-                phone=params.phone,
-                address=params.address,
-                city=params.city,
-                state=params.state,
-                postal_code=params.postal_code,
-                **additional_fields
-            )
-            
-            return {
-                "success": True,
-                "message": "Contract link generated successfully",
-                "data": {
-                    "contract_url": result["url"],
-                    "form_id": result["form_id"],
-                    "email_sent": False,
-                    "customer_name": params.customer_name,
-                    "email": params.email
-                }
-            }
-    
+        return await execute_send_contract(params, jotform)
     except JotFormError as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to process contract: {str(e)}"
+            detail=f"Failed to process contract: {str(e)}",
         )
     finally:
-        # Always close the client after use
         await jotform.close()
 
 
@@ -211,6 +203,27 @@ async def get_contract_status(
             "data": result
         }
     
+    except JotFormError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check contract status: {str(e)}"
+        )
+    finally:
+        await jotform.close()
+
+
+@router.post("/contract-status", dependencies=[Depends(verify_api_key)])
+async def get_contract_status_post(
+    params: ContractStatusTool,
+    jotform: JotFormClient = Depends(get_jotform_client)
+) -> dict:
+    """POST variant for Vapi tool integration to check contract status."""
+    try:
+        result = await jotform.get_submission_status(params.submission_id)
+        return {
+            "success": True,
+            "data": result
+        }
     except JotFormError as e:
         raise HTTPException(
             status_code=500,

@@ -6,6 +6,10 @@
 app = 'fontis-voice-agent'
 primary_region = 'iad'
 
+[processes]
+  app = "uvicorn src.main:app --host 0.0.0.0 --port 8000"
+  worker = "python -m scripts.email_poll_worker"
+
 [build]
 
 [http_service]

@@ -60,7 +60,7 @@ Call or text reminder before delivery
 If customer is past due or on hold:
 Inform them delivery will not occur due to account status
 Provide next steps to resolve
- Integration Notes:
+Integration Notes:
 Middleware + RestAPI will be the main data source.
 Declined payments are available only through automated transaction reports (not API).
 Contracts sent via JotForm integration.

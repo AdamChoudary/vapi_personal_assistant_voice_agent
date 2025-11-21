@@ -148,6 +148,28 @@ TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "payment_expiry_alerts",
+        "description": "Identify payment methods that are expired or expiring soon so customers can update them.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Customer ID"
+                },
+                "days_threshold": {
+                    "type": "integer",
+                    "description": "Days before expiry to flag cards (default 60)"
+                },
+                "include_inactive": {
+                    "type": "boolean",
+                    "description": "Include inactive payment methods"
+                }
+            },
+            "required": ["customer_id"]
+        }
+    },
+    {
         "name": "products",
         "description": "Get product catalog with prices. Use for new customers or when they ask about available products.",
         "parameters": {
@@ -254,6 +276,20 @@ TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "customer_contracts",
+        "description": "Alias for get_contracts to retrieve customer service agreements.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Customer ID"
+                }
+            },
+            "required": ["customer_id"]
+        }
+    },
+    {
         "name": "route_stops",
         "description": "Get all stops on a specific route for a date. Used to verify if delivery was completed or skipped.",
         "parameters": {
@@ -276,41 +312,229 @@ TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "delivery_summary",
+        "description": "Summarize delivery route, driver, equipment, and next delivery context for a customer stop.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "includeNextDelivery": {"type": "boolean", "description": "Include next scheduled delivery lookup"},
+                "includeDefaults": {"type": "boolean", "description": "Include standing order/default product summary"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
+        "name": "delivery_schedule",
+        "description": "Retrieve scheduled deliveries for a customer within a date range, including completion status.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "fromDate": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "toDate": {"type": "string", "description": "End date (YYYY-MM-DD)"},
+                "historyDays": {"type": "integer", "description": "Days in the past when fromDate omitted"},
+                "futureDays": {"type": "integer", "description": "Days in the future when toDate omitted"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
+        "name": "work_order_status",
+        "description": "Check recent off-route deliveries or service work orders for a customer.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "limit": {"type": "integer", "description": "Number of recent orders to review"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
+        "name": "pricing_breakdown",
+        "description": "Provide pricing breakdown for the customer's standing order and optional catalog excerpt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "postalCode": {"type": "string", "description": "Postal code for pricing lookup"},
+                "internetOnly": {"type": "boolean", "description": "Restrict catalog to internet/web products"},
+                "includeCatalogExcerpt": {"type": "boolean", "description": "Include a short catalog excerpt"}
+            },
+            "required": ["customerId", "postalCode"]
+        }
+    },
+    {
+        "name": "order_change_status",
+        "description": "Confirm if a pending order or delivery change request exists for the customer.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customerId": {"type": "string", "description": "Customer account number"},
+                "deliveryId": {"type": "string", "description": "Delivery stop ID (optional)"},
+                "ticketNumber": {"type": "string", "description": "Specific ticket number to confirm"},
+                "onlyOpenOrders": {"type": "boolean", "description": "Limit lookup to open/pending orders"}
+            },
+            "required": ["customerId"]
+        }
+    },
+    {
         "name": "send_contract",
         "description": "Send onboarding contract to new customer via JotForm. Use for new customer signups.",
         "parameters": {
             "type": "object",
             "properties": {
-                "customer_name": {
-                    "type": "string",
-                    "description": "Full name"
+                "customerName": {"type": "string", "description": "Full legal name"},
+                "email": {"type": "string", "description": "Primary email address"},
+                "phone": {"type": "string", "description": "Phone number (recommend E.164)"},
+                "address": {"type": "string", "description": "Service street address"},
+                "city": {"type": "string", "description": "Service city"},
+                "state": {"type": "string", "description": "Two-letter state code"},
+                "postalCode": {"type": "string", "description": "ZIP or postal code"},
+                "deliveryPreference": {"type": "string", "description": "Preferred delivery day"},
+                "companyName": {"type": "string", "description": "Business or organization name"},
+                "productsOfInterest": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Products the customer is interested in"
                 },
-                "email": {
+                "specialInstructions": {
                     "type": "string",
-                    "description": "Email address"
+                    "description": "Any onboarding notes or delivery instructions"
                 },
-                "phone": {
-                    "type": "string",
-                    "description": "Phone number"
+                "marketingOptIn": {
+                    "type": "boolean",
+                    "description": "Did the customer opt into marketing communications?"
                 },
-                "address": {
-                    "type": "string",
-                    "description": "Street address"
-                },
-                "city": {
-                    "type": "string",
-                    "description": "City"
-                },
-                "state": {
-                    "type": "string",
-                    "description": "State"
-                },
-                "postal_code": {
-                    "type": "string",
-                    "description": "ZIP code"
+                "sendEmail": {
+                    "type": "boolean",
+                    "description": "Send the contract via JotForm email invitation (default true)"
                 }
             },
-            "required": ["customer_name", "email", "phone", "address"]
+            "required": [
+                "customerName",
+                "email",
+                "phone",
+                "address",
+                "city",
+                "state",
+                "postalCode"
+            ]
+        }
+    },
+    {
+        "name": "contract_status",
+        "description": "Check the status of a submitted onboarding contract.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "submission_id": {
+                    "type": "string",
+                    "description": "JotForm submission ID"
+                }
+            },
+            "required": ["submission_id"]
+        }
+    },
+
+    # OUTBOUND CALL TOOLS
+    {
+        "name": "declined_payment_call",
+        "description": "Initiate a declined payment outreach call to notify the customer about a failed payment and request updated information.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Fontis customer ID"
+                },
+                "customer_phone": {
+                    "type": "string",
+                    "description": "Customer phone number in E.164 format"
+                },
+                "customer_name": {
+                    "type": "string",
+                    "description": "Customer name"
+                },
+                "declined_amount": {
+                    "type": "number",
+                    "description": "Amount that was declined"
+                },
+                "account_balance": {
+                    "type": "number",
+                    "description": "Current account balance"
+                }
+                },
+            "required": ["customer_id", "customer_phone", "customer_name"]
+        }
+    },
+    {
+        "name": "collections_call",
+        "description": "Initiate a collections call for a past-due account to discuss outstanding balances and next steps.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Fontis customer ID"
+                },
+                "customer_phone": {
+                    "type": "string",
+                    "description": "Customer phone number in E.164 format"
+                },
+                "customer_name": {
+                    "type": "string",
+                    "description": "Customer name"
+                },
+                "past_due_amount": {
+                    "type": "number",
+                    "description": "Past due amount"
+                },
+                "days_past_due": {
+                    "type": "integer",
+                    "description": "Days the account is past due"
+                }
+            },
+            "required": ["customer_id", "customer_phone", "customer_name", "past_due_amount"]
+        }
+    },
+    {
+        "name": "delivery_reminder_call",
+        "description": "Send a delivery reminder by phone or SMS, optionally warning about account holds before scheduled service.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "Fontis customer ID"
+                },
+                "customer_phone": {
+                    "type": "string",
+                    "description": "Customer phone number in E.164 format"
+                },
+                "customer_name": {
+                    "type": "string",
+                    "description": "Customer name"
+                },
+                "delivery_date": {
+                    "type": "string",
+                    "description": "Scheduled delivery date (YYYY-MM-DD)"
+                },
+                "send_sms": {
+                    "type": "boolean",
+                    "description": "Send an SMS instead of placing a call"
+                },
+                "account_on_hold": {
+                    "type": "boolean",
+                    "description": "Account is on hold or past due"
+                }
+            },
+            "required": ["customer_id", "customer_phone", "customer_name", "delivery_date"]
         }
     }
 ]
@@ -325,6 +549,7 @@ ENDPOINT_MAP = {
     "invoice_history": "/tools/billing/invoice-history",
     "invoice_detail": "/tools/billing/invoice-detail",
     "payment_methods": "/tools/billing/payment-methods",
+    "payment_expiry_alerts": "/tools/billing/payment-expiry-alerts",
     "products": "/tools/billing/products",
     "delivery_stops": "/tools/delivery/stops",
     "next_scheduled_delivery": "/tools/delivery/next-scheduled",
@@ -332,7 +557,19 @@ ENDPOINT_MAP = {
     "search_orders": "/tools/delivery/search-orders",
     "get_contracts": "/tools/contracts/get-contracts",
     "route_stops": "/tools/routes/stops",
-    "send_contract": "/tools/onboarding/send-contract"
+    "delivery_summary": "/tools/delivery/summary",
+    "delivery_schedule": "/tools/delivery/schedule",
+    "work_order_status": "/tools/delivery/work-orders",
+    "pricing_breakdown": "/tools/delivery/pricing-breakdown",
+    "order_change_status": "/tools/delivery/order-change-status",
+    "send_contract": "/tools/onboarding/send-contract",
+    "customer_contracts": "/tools/contracts/get-contracts",
+    "orders_search": "/tools/delivery/search-orders",
+    "products_catalog": "/tools/billing/products",
+    "contract_status": "/tools/onboarding/contract-status",
+    "declined_payment_call": "/admin/outbound/declined-payment",
+    "collections_call": "/admin/outbound/collections",
+    "delivery_reminder_call": "/admin/outbound/delivery-reminder"
 }
 
 
@@ -369,10 +606,10 @@ async def get_current_assistant() -> dict[str, Any]:
 async def sync_tools(tunnel_url: str) -> dict[str, Any]:
     """Sync all 17 tools to Vapi assistant."""
     
-    print("🔍 Fetching current assistant configuration...")
+    print("[INFO] Fetching current assistant configuration...")
     current = await get_current_assistant()
     
-    print(f"✓ Current assistant: {current.get('name', 'Unknown')}")
+    print(f"[OK] Current assistant: {current.get('name', 'Unknown')}")
     print(f"  Current tools: {len(current.get('model', {}).get('tools', []))}")
     
     # Remove read-only fields
@@ -385,7 +622,7 @@ async def sync_tools(tunnel_url: str) -> dict[str, Any]:
         current["functions"] = []
     
     # Build new tools array
-    print(f"\n🔧 Building {len(TOOL_DEFINITIONS)} tools...")
+    print(f"\n[INFO] Building {len(TOOL_DEFINITIONS)} tools...")
     new_tools = []
     
     for tool_def in TOOL_DEFINITIONS:
@@ -414,7 +651,7 @@ async def sync_tools(tunnel_url: str) -> dict[str, Any]:
             vapi_tool["function"]["strict"] = True
         
         new_tools.append(vapi_tool)
-        print(f"  ✓ {tool_name} → {full_url}")
+        print(f"  - {tool_name} -> {full_url}")
     
     # Update model.tools
     if "model" not in current:
@@ -423,7 +660,7 @@ async def sync_tools(tunnel_url: str) -> dict[str, Any]:
     current["model"]["tools"] = new_tools
     
     # Update assistant via API
-    print(f"\n📤 Updating Vapi assistant...")
+    print(f"\n[INFO] Updating Vapi assistant configuration...")
     async with httpx.AsyncClient() as client:
         response = await client.patch(
             f"{VAPI_BASE_URL}/assistant/{VAPI_ASSISTANT_ID}",
@@ -437,71 +674,71 @@ async def sync_tools(tunnel_url: str) -> dict[str, Any]:
         response.raise_for_status()
         result = response.json()
     
-    print(f"\n✅ Successfully synced {len(new_tools)} tools!")
+    print(f"\n[OK] Successfully synced {len(new_tools)} tools!")
     return result
 
 
 async def main():
     """Main execution."""
-    print("🚀 Vapi Tool Sync Script\n")
+    print("=== Vapi Tool Sync Script ===\n")
     print("This will sync ALL 17 backend endpoints to Vapi assistant")
     print("=" * 60)
     
     # Validate environment
     if not VAPI_API_KEY:
-        print("❌ Error: VAPI_API_KEY not set")
+        print("ERROR: VAPI_API_KEY not set")
         sys.exit(1)
     
     if not VAPI_ASSISTANT_ID:
-        print("❌ Error: VAPI_ASSISTANT_ID not set")
+        print("ERROR: VAPI_ASSISTANT_ID not set")
         sys.exit(1)
     
     if not INTERNAL_API_KEY:
-        print("❌ Error: INTERNAL_API_KEY not set (needed for tool authentication)")
+        print("ERROR: INTERNAL_API_KEY not set (needed for tool authentication)")
         sys.exit(1)
     
     # Get tunnel URL
     tunnel_url = TUNNEL_URL
     
     if not tunnel_url:
-        print("\n🔍 No URL provided, detecting cloudflared tunnel...")
+        print("\n[INFO] No URL provided, detecting cloudflared tunnel...")
         tunnel_url = await detect_cloudflared_url()
         
         if not tunnel_url:
-            print("\n❌ Error: Could not detect tunnel URL")
+            print("\nERROR: Could not detect tunnel URL")
             print("Usage: python scripts/sync_all_tools_to_vapi.py <tunnel_url>")
             print("Example: python scripts/sync_all_tools_to_vapi.py https://xyz.trycloudflare.com")
             sys.exit(1)
     
-    print(f"\n🌐 Using tunnel URL: {tunnel_url}\n")
+    print(f"\n[INFO] Using tunnel URL: {tunnel_url}\n")
     
     try:
         result = await sync_tools(tunnel_url)
         
         print("\n" + "=" * 60)
-        print("✨ SYNC COMPLETE!")
+        print("SYNC COMPLETE")
         print("=" * 60)
-        print(f"\n✅ All 17 tools are now configured")
-        print(f"✅ Server URL: {tunnel_url}")
-        print(f"✅ Authentication: Configured with INTERNAL_API_KEY")
+        print(f"\n[OK] All {len(TOOL_DEFINITIONS)} tools are now configured")
+        print(f"[OK] Server URL: {tunnel_url}")
+        print(f"[OK] Authentication: Configured with INTERNAL_API_KEY")
         
-        print("\n📋 Synced tools:")
+        print("\nTools synced:")
         for i, tool_def in enumerate(TOOL_DEFINITIONS, 1):
             print(f"  {i}. {tool_def['name']}")
         
-        print("\n🎯 Next steps:")
+        print("\nNext steps:")
         print("  1. Test a call: +16783034022")
         print("  2. Try: 'What's my balance?' or 'Show my invoices'")
         print("  3. Watch dashboard for tool calls")
-        print("  4. Assistant should now have access to ALL data!")
+        print("  4. Assistant should now have access to all synced tools.")
         
     except httpx.HTTPError as e:
-        print(f"\n❌ Error syncing tools: {e}")
+        print(f"\nERROR syncing tools: {e}")
         if hasattr(e, 'response'):
             print(f"   Response: {e.response.text}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
+        print(f"\nERROR: Unexpected failure: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

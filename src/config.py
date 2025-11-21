@@ -11,7 +11,8 @@ Design decisions:
 - Properties for computed values (is_production, is_development)
 """
 
-from typing import Union
+import json
+from typing import Any, Union
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -67,6 +68,11 @@ class Settings(BaseSettings):
         default=None,
         description="Vapi assistant ID for testing"
     )
+    vapi_assistant_id_outbound: str | None = Field(
+        default=None,
+        alias="VAPI_ASSISTANT_ID_OUTBOUND",
+        description="Optional outbound-specific assistant ID override"
+    )
     vapi_phone_number: str | None = Field(
         default=None,
         description="Vapi phone number for outbound calls"
@@ -96,6 +102,60 @@ class Settings(BaseSettings):
     jotform_form_id: str | None = Field(
         default=None,
         description="JotForm form ID for customer onboarding contracts"
+    )
+    jotform_prefill_map: dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping of canonical onboarding fields to JotForm field query keys"
+    )
+    
+    # ===== Email Configuration (for CSV batch monitoring) =====
+    email_imap_server: str | None = Field(
+        default=None,
+        description="IMAP server for monitoring CSV batch emails (e.g., imap.gmail.com)"
+    )
+    email_imap_port: int = Field(
+        default=993,
+        description="IMAP port (usually 993 for SSL)"
+    )
+    email_address: str | None = Field(
+        default=None,
+        description="Email address to monitor for CSV attachments"
+    )
+    email_password: str | None = Field(
+        default=None,
+        description="Email password or app password for IMAP access"
+    )
+    csv_download_dir: str = Field(
+        default="data/csv_batches",
+        description="Directory to save downloaded CSV files"
+    )
+
+    # ===== Google Sheets Configuration (Outbound tracking) =====
+    google_service_account_json: str | None = Field(
+        default=None,
+        description="Service account JSON (path, inline JSON, or secret ref) for Google Sheets access"
+    )
+    google_spreadsheet_id: str | None = Field(
+        default=None,
+        description="Spreadsheet ID for outbound tracking sheet"
+    )
+    google_worksheet_title: str = Field(
+        default="2025",
+        description="Worksheet title for outbound tracking sheet"
+    )
+
+    # ===== Twilio Configuration =====
+    twilio_account_sid: str | None = Field(
+        default=None,
+        description="Twilio Account SID for SMS fallback"
+    )
+    twilio_auth_token: str | None = Field(
+        default=None,
+        description="Twilio Auth Token for SMS fallback"
+    )
+    twilio_from_number: str | None = Field(
+        default=None,
+        description="Twilio phone number used to send SMS notifications"
     )
     
     # ===== Security Settings =====
@@ -154,6 +214,24 @@ class Settings(BaseSettings):
             raise ValueError("fontis_api_key must start with 'fk_' prefix")
         return v
     
+    @field_validator("jotform_prefill_map", mode="before")
+    @classmethod
+    def parse_jotform_prefill_map(cls, value: Any) -> dict[str, str]:
+        """Support JSON string overrides for the JotForm prefill map."""
+        if value in (None, "", {}):
+            return {}
+        if isinstance(value, dict):
+            return {str(k): str(v) for k, v in value.items()}
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError("JOTFORM_PREFILL_MAP must be valid JSON") from exc
+            if not isinstance(parsed, dict):
+                raise ValueError("JOTFORM_PREFILL_MAP must decode to an object")
+            return {str(k): str(v) for k, v in parsed.items()}
+        raise ValueError("Unsupported value for JOTFORM_PREFILL_MAP")
+    
     @model_validator(mode="after")
     def validate_and_parse_settings(self):
         """Parse cors_origins from string to list and validate."""
@@ -165,6 +243,10 @@ class Settings(BaseSettings):
             else:
                 self.cors_origins = [origin.strip() for origin in cors_value.split(",") if origin.strip()]
         
+        # Apply outbound assistant fallback
+        if self.vapi_assistant_id_outbound:
+            self.vapi_assistant_id = self.vapi_assistant_id_outbound
+
         # Validate CORS in production
         if self.app_env == "production":
             if not self.cors_origins or len(self.cors_origins) == 0:

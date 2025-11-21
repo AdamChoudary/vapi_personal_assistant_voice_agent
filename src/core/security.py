@@ -37,4 +37,3 @@ async def verify_api_key(
             detail="Invalid API key",
             headers={"WWW-Authenticate": "Bearer"}
         )
-

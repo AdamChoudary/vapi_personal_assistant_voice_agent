@@ -1,0 +1,8 @@
+# Ignore AI training artifacts
+/Implementations/
+/Internal/
+/ARSDataAPI/
+
+# Git workflow helper scripts (for managing nested repos)
+/git-workflow.ps1
+/GIT-WORKFLOW.md

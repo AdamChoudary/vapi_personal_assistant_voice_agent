@@ -1,3 +1,8 @@
+import calendar
+import re
+from datetime import date
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.core.deps import get_fontis_client
@@ -7,12 +12,50 @@ from src.schemas.tools import (
     InvoiceHistoryTool,
     BillingMethodsTool,
     ProductsTool,
-    InvoiceDetailTool
+    InvoiceDetailTool,
+    PaymentExpiryAlertTool
 )
 from src.services.fontis_client import FontisClient
 from src.core.exceptions import FontisAPIError
 
 router = APIRouter(prefix="/tools/billing", tags=["tools-billing"])
+
+
+def _get_value(method: dict[str, Any], *keys: str) -> Any:
+    """Return the first non-empty value from the provided keys."""
+    for key in keys:
+        if key in method:
+            value = method[key]
+            if value not in (None, "", "null"):
+                return value
+        # Support case-insensitive lookups
+        lower_key = key.lower()
+        for actual_key, actual_val in method.items():
+            if actual_key.lower() == lower_key and actual_val not in (None, "", "null"):
+                return actual_val
+    return None
+
+
+def _parse_expiration(raw: str | None) -> tuple[date | None, int | None, int | None]:
+    """Parse expiration string (MMYY, MM/YYYY, etc.) into a date."""
+    if not raw:
+        return None, None, None
+
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) == 4:  # MMYY
+        month = int(digits[:2])
+        year = 2000 + int(digits[2:])
+    elif len(digits) == 6:  # MMYYYY
+        month = int(digits[:2])
+        year = int(digits[2:])
+    else:
+        return None, None, None
+
+    if month < 1 or month > 12:
+        return None, None, None
+
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, last_day), month, year
 
 
 @router.post("/balance", dependencies=[Depends(verify_api_key)])
@@ -204,6 +247,116 @@ async def get_payment_methods(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/payment-expiry-alerts", dependencies=[Depends(verify_api_key)])
+async def get_payment_expiry_alerts(
+    params: PaymentExpiryAlertTool,
+    fontis: FontisClient = Depends(get_fontis_client)
+) -> dict:
+    """
+    Detect payment methods that are expired or approaching expiration.
+
+    Tool ID: (new)
+    Fontis Endpoint: Uses billing methods data and local date calculations.
+
+    Behavior:
+    - Pulls masked payment methods from Fontis
+    - Parses expiration dates (MMYY, MM/YYYY, etc.) and computes days remaining
+    - Flags methods as expired, expiring soon (<= threshold), or active
+    - Returns a summary and per-method detail with no sensitive tokens
+    """
+    try:
+        response = await fontis.get_billing_methods(
+            customer_id=params.customer_id,
+            include_inactive=params.include_inactive
+        )
+    except FontisAPIError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not response.get("success"):
+        return {
+            "success": False,
+            "message": response.get("message", "Failed to retrieve billing methods")
+        }
+
+    methods = response.get("data", []) or []
+    today = date.today()
+    threshold = params.days_threshold
+
+    categorized: dict[str, list[dict[str, Any]]] = {
+        "expired": [],
+        "expiring_soon": [],
+        "active": [],
+        "no_expiration": [],
+    }
+    results: list[dict[str, Any]] = []
+
+    for method in methods:
+        description = _get_value(method, "description", "Description", "displayName")
+        method_type = _get_value(method, "type", "methodType", "paymentType")
+        raw_exp = _get_value(method, "cardExpiration", "CardExpiration", "expiration")
+        autopay = bool(_get_value(method, "autopay", "AutoPay", "autoPay"))
+        primary = bool(_get_value(method, "primary", "Primary"))
+        status_flag = _get_value(method, "status", "Status")
+
+        expiration_date, exp_month, exp_year = _parse_expiration(raw_exp)
+        days_remaining: int | None = None
+        if expiration_date is None:
+            status = "no_expiration"
+        else:
+            days_remaining = (expiration_date - today).days
+            if days_remaining < 0:
+                status = "expired"
+            elif days_remaining <= threshold:
+                status = "expiring_soon"
+            else:
+                status = "active"
+
+        entry = {
+            "description": description,
+            "type": method_type,
+            "status": status,
+            "primary": primary,
+            "autopay": autopay,
+            "rawStatus": status_flag,
+            "expiration": {
+                "raw": raw_exp,
+                "month": exp_month,
+                "year": exp_year,
+                "isoDate": expiration_date.isoformat() if expiration_date else None,
+                "daysRemaining": days_remaining,
+            },
+            "notes": _get_value(method, "notes", "Notes"),
+        }
+
+        categorized[status].append(entry)
+        results.append(entry)
+
+    summary = {
+        "total": len(methods),
+        "expired": len(categorized["expired"]),
+        "expiringSoon": len(categorized["expiring_soon"]),
+        "active": len(categorized["active"]),
+        "unknown": len(categorized["no_expiration"]),
+        "thresholdDays": threshold,
+    }
+
+    if not methods:
+        message = "No payment methods were found for this customer."
+    elif summary["expired"]:
+        message = f"{summary['expired']} payment method(s) are already expired."
+    elif summary["expiringSoon"]:
+        message = f"{summary['expiringSoon']} payment method(s) expire within {threshold} days."
+    else:
+        message = "All payment methods are active and outside the alert window."
+
+    return {
+        "success": True,
+        "message": message,
+        "data": results,
+        "summary": summary,
+    }
+
+
 @router.post("/products", dependencies=[Depends(verify_api_key)])
 async def get_products(
     params: ProductsTool,
@@ -228,23 +381,11 @@ async def get_products(
     - Explain deposit products and bottle exchanges
     """
     try:
+        # customerId is now required per documentation for accurate pricing
         # Fontis API requires customer_id in URL path
-        # If only postal_code provided, use special "guest" customer
-        if not params.customer_id:
-            if params.postal_code:
-                # Use guest/prospect mode with postal code
-                customer_id = "GUEST"
-                delivery_id = ""
-                postal_code = params.postal_code
-            else:
-                return {
-                    "success": False,
-                    "message": "Either customer_id or postal_code must be provided to get products"
-                }
-        else:
-            customer_id = params.customer_id
-            delivery_id = params.delivery_id or ""
-            postal_code = params.postal_code or ""
+        customer_id = params.customer_id
+        delivery_id = params.delivery_id or ""
+        postal_code = params.postal_code or ""
         
         response = await fontis.get_products(
             customer_id=customer_id,
@@ -330,6 +471,17 @@ async def get_invoice_detail(
     - includePayments: Shows related payment records
     """
     try:
+        # Validate that invoiceKey is not a payment record
+        # Payment records typically have invoiceKey starting with "Payment" or similar
+        invoice_key_lower = params.invoice_key.lower() if params.invoice_key else ""
+        if "payment" in invoice_key_lower and invoice_key_lower != "payment":
+            # Allow if it's part of a longer key, but check if it's clearly a payment
+            if invoice_key_lower.startswith("payment") or invoice_key_lower == "payment":
+                return {
+                    "success": False,
+                    "message": "Invoice detail cannot be retrieved for payment records. Use invoice_history to view payment information."
+                }
+        
         response = await fontis.get_invoice_detail(
             customer_id=params.customer_id,
             invoice_key=params.invoice_key,

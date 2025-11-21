@@ -22,6 +22,21 @@ import httpx
 from src.config import settings
 from src.core.exceptions import ErrorCode, JotFormError
 
+DEFAULT_PREFILL_MAP: dict[str, str] = {
+    "customer_name": "customerName",
+    "email": "email",
+    "phone": "phoneNumber",
+    "address": "address",
+    "city": "city",
+    "state": "state",
+    "postal_code": "postalCode",
+    "delivery_preference": "deliveryPreference",
+    "company_name": "companyName",
+    "products_of_interest": "productsOfInterest",
+    "special_instructions": "specialInstructions",
+    "marketing_opt_in": "marketingOptIn",
+}
+
 
 class JotFormClient:
     """
@@ -58,6 +73,7 @@ class JotFormClient:
         self.base_url = settings.jotform_base_url
         self.api_key = settings.jotform_api_key
         self.form_id = settings.jotform_form_id
+        self.prefill_map = {**DEFAULT_PREFILL_MAP, **settings.jotform_prefill_map}
         
         # Validate configuration
         if not self.api_key:
@@ -139,26 +155,19 @@ class JotFormClient:
             - Customer can modify pre-filled data before submitting
         """
         try:
-            # Build pre-fill parameters
-            # JotForm uses question IDs as keys (e.g., q3_fullName)
-            # These IDs are specific to your form and must be configured
-            prefill_data = {
-                "name": customer_name,
-                "email": email,
-                "phone": phone,
-                "address": address,
-                "city": city,
-                "state": state,
-                "postalCode": postal_code,
-                **additional_fields
-            }
+            prefill_payload = self._build_prefill_payload(
+                customer_name=customer_name,
+                email=email,
+                phone=phone,
+                address=address,
+                city=city,
+                state=state,
+                postal_code=postal_code,
+                **additional_fields,
+            )
             
-            # Generate pre-filled form URL
             form_url = f"https://form.jotform.com/{self.form_id}"
-            
-            # Add query parameters for pre-fill
-            # Note: Field names should match your JotForm field names
-            query_params = urlencode(prefill_data)
+            query_params = urlencode(prefill_payload, doseq=True, safe="|,:")
             prefilled_url = f"{form_url}?{query_params}"
             
             return {
@@ -166,7 +175,8 @@ class JotFormClient:
                 "url": prefilled_url,
                 "form_id": self.form_id,
                 "customer_name": customer_name,
-                "email": email
+                "email": email,
+                "prefill": prefill_payload,
             }
             
         except Exception as e:
@@ -244,25 +254,42 @@ class JotFormClient:
             
             # JotForm API endpoint for sending forms
             # Note: This uses JotForm's email invitation feature
-            response = await self.client.post(
-                f"/form/{self.form_id}/invitations",
-                data={
-                    "email": email,
-                    "name": customer_name,
-                    "message": f"Hello {customer_name}, please complete your Fontis Water service agreement.",
-                    "prefill": link_data["url"]
-                }
-            )
-            
-            response.raise_for_status()
-            result = response.json()
+            email_sent = False
+            try:
+                response = await self.client.post(
+                    f"/form/{self.form_id}/invitations",
+                    data={
+                        "email": email,
+                        "name": customer_name,
+                        "message": f"Hello {customer_name}, please complete your Fontis Water service agreement.",
+                        "prefill": link_data["url"],
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+                email_sent = True
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    # JotForm standard plans do not support email invitations; fall back to link-only flow.
+                    return {
+                        "success": True,
+                        "message": "Contract link generated (JotForm email invitations unavailable for this account).",
+                        "email": email,
+                        "form_url": link_data["url"],
+                        "form_id": self.form_id,
+                        "prefill": link_data.get("prefill", {}),
+                        "email_sent": False,
+                    }
+                raise
             
             return {
                 "success": True,
                 "message": "Contract email sent successfully",
                 "email": email,
                 "form_url": link_data["url"],
-                "form_id": self.form_id
+                "form_id": self.form_id,
+                "prefill": link_data.get("prefill", {}),
+                "email_sent": email_sent,
             }
             
         except httpx.HTTPError as e:
@@ -327,4 +354,34 @@ class JotFormClient:
         Should be called when the client is no longer needed.
         """
         await self.client.aclose()
+
+    def _build_prefill_payload(self, **fields: Any) -> dict[str, str]:
+        """
+        Map canonical onboarding fields to the configured JotForm parameter keys.
+        """
+        payload: dict[str, str] = {}
+        for canonical_key, value in fields.items():
+            serialized = self._serialize_prefill_value(value)
+            if serialized is None:
+                continue
+            mapped_key = self.prefill_map.get(canonical_key, canonical_key)
+            payload[mapped_key] = serialized
+        return payload
+
+    @staticmethod
+    def _serialize_prefill_value(value: Any) -> str | None:
+        """Normalize values for URL encoding."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return "Yes" if value else "No"
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, (list, tuple, set)):
+            cleaned = [str(item).strip() for item in value if str(item).strip()]
+            return "|".join(cleaned) if cleaned else None
+        if isinstance(value, dict):
+            return None
+        text = str(value).strip()
+        return text or None
 

@@ -28,10 +28,20 @@ async def search_customer(
     - Includes contact info, address, financial summary
     - Supports pagination for large result sets
     
+    ⚠️ INTERNAL PARAMETERS WARNING:
+    The following parameters are FORBIDDEN for AI calling agents during customer phone conversations:
+    - paginationSettings (Offset, Take, OrderBy, SearchText, Descending)
+    - startFilterDate and endFilterDate
+    - signUpDuration
+    
+    These parameters are exclusively for internal systems, backend tools, and administrative interfaces.
+    AI calling agents should ONLY use the 'lookup' parameter when talking to customers.
+    
     AI Usage Guidelines:
     - Ask for service address first
     - If multiple results: ask for name confirmation
     - Confirm at least 2 identifiers before proceeding (address + name)
+    - ONLY use the 'lookup' parameter - never use internal-only parameters
     """
     try:
         # lookup is now required at schema level (VAPI forced to extract)
@@ -281,6 +291,10 @@ async def get_finance_delivery_info(
     - Includes current balance, last payment, next delivery, equipment
     - Combines financial and operational data in single call
     
+    Requirements:
+    - Both customerId and deliveryId are REQUIRED per Fontis API documentation
+    - Use delivery_stops tool first to obtain deliveryId
+    
     AI Usage Guidelines:
     - Use for "What do I owe?" or "When is my next delivery?"
     - Shows last payment date and amount
@@ -288,26 +302,16 @@ async def get_finance_delivery_info(
     - Includes route day and scheduling area
     """
     try:
-        # If delivery_id not provided, get customer's primary delivery
-        delivery_id = params.delivery_id
-        if not delivery_id:
-            # Get customer details to find their delivery IDs
-            customer = await fontis.get_customer_details(params.customer_id)
-            if customer.get("success") and customer.get("data"):
-                # Try to get first delivery ID from customer data
-                deliveries = customer["data"].get("deliveries", [])
-                if deliveries:
-                    delivery_id = deliveries[0].get("deliveryId")
-        
-        if not delivery_id:
+        # deliveryId is now required in schema - fail fast if missing
+        if not params.delivery_id:
             return {
                 "success": False,
-                "message": "Unable to find delivery information for this customer. They may not have any active deliveries set up."
+                "message": "deliveryId is required. Please use delivery_stops tool first to obtain the delivery ID."
             }
         
         response = await fontis.get_customer_finance_info(
             customer_id=params.customer_id,
-            delivery_id=delivery_id
+            delivery_id=params.delivery_id
         )
         
         if not response.get("success"):

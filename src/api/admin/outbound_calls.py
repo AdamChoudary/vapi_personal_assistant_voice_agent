@@ -25,6 +25,7 @@ class DeclinedPaymentCallRequest(BaseModel):
     customer_name: str = Field(..., description="Customer name")
     declined_amount: Optional[float] = Field(None, description="Amount that was declined")
     account_balance: Optional[float] = Field(None, description="Current account balance")
+    message: Optional[str] = Field(None, description="Custom first message for the AI agent to say to the customer")
 
 
 class CollectionsCallRequest(BaseModel):
@@ -34,6 +35,7 @@ class CollectionsCallRequest(BaseModel):
     customer_name: str = Field(..., description="Customer name")
     past_due_amount: float = Field(..., description="Past due amount")
     days_past_due: Optional[int] = Field(None, description="Days past due")
+    message: Optional[str] = Field(None, description="Custom first message for the AI agent to say to the customer")
 
 
 class DeliveryReminderRequest(BaseModel):
@@ -44,6 +46,7 @@ class DeliveryReminderRequest(BaseModel):
     delivery_date: str = Field(..., description="Scheduled delivery date (YYYY-MM-DD)")
     send_sms: bool = Field(False, description="Send SMS instead of call")
     account_on_hold: bool = Field(False, description="Account is past due/on hold")
+    message: Optional[str] = Field(None, description="Custom first message for the AI agent to say to the customer (only used for calls, not SMS)")
 
 
 class CallResponse(BaseModel):
@@ -68,18 +71,57 @@ async def initiate_declined_payment_call(
     logger.info(
         "declined_payment_call_requested",
         customer_id=request.customer_id,
-        customer_name=request.customer_name
+        customer_name=request.customer_name,
+        customer_phone=request.customer_phone
     )
     
     try:
         outbound_service = get_outbound_service()
         
+        # CRITICAL: Use the exact customer_name from the request - do not modify it
+        customer_name = request.customer_name.strip() if request.customer_name else ""
+        logger.info(
+            "processing_declined_payment",
+            received_customer_name=customer_name,
+            customer_id=request.customer_id
+        )
+        
+        # Build call reason summary for agent context
+        # CRITICAL: Make the declined amount VERY prominent in the summary
+        call_reason_parts = []
+        if request.declined_amount:
+            # Make the amount very clear and prominent
+            call_reason_parts.append(f"Payment of ${request.declined_amount:.2f} was declined - use this EXACT amount: ${request.declined_amount:.2f}")
+        if request.account_balance:
+            call_reason_parts.append(f"Current account balance is ${request.account_balance:.2f} - DO NOT use this amount, use declined_amount instead")
+        call_reason_summary = ". ".join(call_reason_parts) if call_reason_parts else "Payment was declined"
+        
         customer_data = {
             "customer_id": request.customer_id,
-            "name": request.customer_name,
+            "name": customer_name,  # Use the exact name from request
+            "customer_name": customer_name,  # Also set as customer_name for metadata
             "declined_amount": request.declined_amount,
-            "account_balance": request.account_balance
+            "account_balance": request.account_balance,
+            "call_reason_summary": call_reason_summary,  # Help agent understand why calling
         }
+        
+        # Add formatted amount display for easy reading
+        if request.declined_amount:
+            customer_data["call_amount_display"] = f"${request.declined_amount:.2f}"
+        
+        # Add custom message to metadata as context (not firstMessage)
+        # This allows agent to introduce itself first, then use message naturally
+        if request.message:
+            customer_data["custom_message_context"] = request.message
+        
+        # Log metadata being prepared for agent
+        logger.info(
+            "declined_payment_metadata_prepared",
+            customer_name=customer_name,
+            declined_amount=request.declined_amount,
+            call_reason_summary=call_reason_summary,
+            has_custom_message=bool(request.message)
+        )
         
         call_result = await outbound_service.initiate_call(
             customer_phone=request.customer_phone,
@@ -116,18 +158,51 @@ async def initiate_collections_call(
     logger.info(
         "collections_call_requested",
         customer_id=request.customer_id,
+        customer_name=request.customer_name,
         past_due_amount=request.past_due_amount
     )
     
     try:
         outbound_service = get_outbound_service()
         
+        # CRITICAL: Use the exact customer_name from the request - do not modify it
+        customer_name = request.customer_name.strip() if request.customer_name else ""
+        logger.info(
+            "processing_collections",
+            received_customer_name=customer_name,
+            customer_id=request.customer_id
+        )
+        
+        # Build call reason summary for agent context
+        call_reason_summary = f"Account has past due balance of ${request.past_due_amount:.2f}"
+        if request.days_past_due:
+            call_reason_summary += f" ({request.days_past_due} days past due)"
+        
         customer_data = {
             "customer_id": request.customer_id,
-            "name": request.customer_name,
+            "name": customer_name,  # Use the exact name from request
+            "customer_name": customer_name,  # Also set as customer_name for metadata
             "past_due_amount": request.past_due_amount,
-            "days_past_due": request.days_past_due
+            "days_past_due": request.days_past_due,
+            "call_reason_summary": call_reason_summary,  # Help agent understand why calling
         }
+        
+        # Add formatted amount display for easy reading
+        customer_data["call_amount_display"] = f"${request.past_due_amount:.2f}"
+        
+        # Add custom message to metadata as context (not firstMessage)
+        # This allows agent to introduce itself first, then use message naturally
+        if request.message:
+            customer_data["custom_message_context"] = request.message
+        
+        # Log metadata being prepared for agent
+        logger.info(
+            "collections_metadata_prepared",
+            customer_name=customer_name,
+            past_due_amount=request.past_due_amount,
+            call_reason_summary=call_reason_summary,
+            has_custom_message=bool(request.message)
+        )
         
         call_result = await outbound_service.initiate_call(
             customer_phone=request.customer_phone,
@@ -164,6 +239,7 @@ async def send_delivery_reminder(
     logger.info(
         "delivery_reminder_requested",
         customer_id=request.customer_id,
+        customer_name=request.customer_name,
         delivery_date=request.delivery_date,
         send_sms=request.send_sms
     )
@@ -171,12 +247,42 @@ async def send_delivery_reminder(
     try:
         outbound_service = get_outbound_service()
         
+        # CRITICAL: Use the exact customer_name from the request - do not modify it
+        customer_name = request.customer_name.strip() if request.customer_name else ""
+        logger.info(
+            "processing_delivery_reminder",
+            received_customer_name=customer_name,
+            customer_id=request.customer_id
+        )
+        
+        # Build call reason summary for agent context
+        if request.account_on_hold:
+            call_reason_summary = f"Delivery scheduled for {request.delivery_date} cannot be completed due to outstanding balance"
+        else:
+            call_reason_summary = f"Delivery reminder for scheduled delivery on {request.delivery_date}"
+        
         customer_data = {
             "customer_id": request.customer_id,
-            "name": request.customer_name,
+            "name": customer_name,  # Use the exact name from request
+            "customer_name": customer_name,  # Also set as customer_name for metadata
             "delivery_date": request.delivery_date,
-            "account_on_hold": request.account_on_hold
+            "account_on_hold": request.account_on_hold,
+            "call_reason_summary": call_reason_summary,  # Help agent understand why calling
         }
+        
+        # Add formatted delivery date for easy reading
+        customer_data["call_delivery_date"] = request.delivery_date
+        
+        # Log metadata being prepared for agent (only for calls, not SMS)
+        if not request.send_sms:
+            logger.info(
+                "delivery_reminder_metadata_prepared",
+                customer_name=customer_name,
+                delivery_date=request.delivery_date,
+                call_reason_summary=call_reason_summary,
+                account_on_hold=request.account_on_hold,
+                has_custom_message=bool(request.message)
+            )
         
         if request.send_sms:
             # Send SMS reminder
@@ -194,19 +300,31 @@ async def send_delivery_reminder(
                     f"bottles ready for exchange. Questions? Call (678) 303-4022."
                 )
             
-            sms_result = await outbound_service.send_sms(
-                customer_phone=request.customer_phone,
-                message=message,
-                customer_data=customer_data
-            )
-            
-            return CallResponse(
-                success=True,
-                message=f"SMS reminder sent to {request.customer_name}",
-                call_id=sms_result.get("id")
-            )
+            try:
+                sms_result = await outbound_service.send_sms(
+                    customer_phone=request.customer_phone,
+                    message=message,
+                    customer_data=customer_data
+                )
+                
+                return CallResponse(
+                    success=True,
+                    message=f"SMS reminder sent to {request.customer_name}",
+                    call_id=sms_result.get("id")
+                )
+            except Exception as sms_error:
+                logger.error("sms_send_failed", error=str(sms_error), exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to send SMS: {str(sms_error)}"
+                )
         else:
             # Make reminder call
+            # Add custom message to metadata as context (not firstMessage)
+            # This allows agent to introduce itself first, then use message naturally
+            if request.message:
+                customer_data["custom_message_context"] = request.message
+            
             call_result = await outbound_service.initiate_call(
                 customer_phone=request.customer_phone,
                 call_type="delivery_reminder",

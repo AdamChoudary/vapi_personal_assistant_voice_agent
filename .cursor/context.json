@@ -1,168 +1,493 @@
 {
-  "arch": {
-    "stack": ["FastAPI", "Python 3.11", "Pydantic", "httpx", "Fly.io"],
-    "patterns": [
-      "REST API",
-      "Webhook handlers",
-      "Dependency injection",
-      "Structured logging"
-    ],
-    "decisions": [
-      {
-        "what": "Added authentication to all tool endpoints",
-        "why": "Secure endpoints from unauthorized access. Only VAPI should call these endpoints with configured INTERNAL_API_KEY",
-        "when": "2025-10-30"
+    "arch": {
+      "stack": [
+        "FastAPI 0.115",
+        "Python 3.11+",
+        "Vapi AI Platform",
+        "Fontis Water RestAPI",
+        "JotForm API",
+        "Twilio SMS",
+        "Google Sheets API",
+        "SQLite (batch tracking)",
+        "Fly.io deployment"
+      ],
+      "patterns": [
+        "Dependency injection (FastAPI Depends)",
+        "Singleton HTTP clients (connection pooling)",
+        "Structured logging (structlog)",
+        "Pydantic Settings for config",
+        "Custom exception hierarchy",
+        "Retry logic with tenacity",
+        "Async/await throughout"
+      ],
+      "decisions": [
+        {
+          "what": "Tool endpoints use API key auth (INTERNAL_API_KEY) instead of webhook verification",
+          "why": "Vapi calls tools directly via server.url, not webhooks. Webhook verification only for call events.",
+          "when": "2025-01-01"
+        },
+        {
+          "what": "Customer search returns plain text via /search-vapi endpoint",
+          "why": "Avoids proxy compression/chunking issues with Vapi. Uses Content-Encoding: identity header.",
+          "when": "2025-01-01"
+        },
+        {
+          "what": "In-memory cache for customer searches (60s TTL)",
+          "why": "Reduces response time from 4-6s to <1s for repeated searches during same call.",
+          "when": "2025-01-01"
+        },
+        {
+          "what": "FontisClient uses singleton pattern via dependency injection",
+          "why": "Connection pooling with httpx.AsyncClient. One client instance reused across all requests.",
+          "when": "2025-01-01"
+        },
+        {
+          "what": "Batch processing uses SQLite for tracking declined payments",
+          "why": "Lightweight, no external dependencies. Tracks customer declines, priorities, outreach history.",
+          "when": "2025-01-01"
+        },
+        {
+          "what": "Outbound calls use Google Sheets for tracking",
+          "why": "Operations team manages campaigns via spreadsheet. Webhook updates sheet status on call completion.",
+          "when": "2025-01-01"
+        }
+      ]
+    },
+    "features": {
+      "voice_assistant_tools": {
+        "files": [
+          "src/api/tools/customer.py",
+          "src/api/tools/delivery.py",
+          "src/api/tools/billing.py",
+          "src/api/tools/contracts.py",
+          "src/api/tools/routes.py",
+          "src/api/tools/onboarding.py"
+        ],
+        "deps": ["FontisClient", "JotFormClient", "TwilioService"],
+        "state": "active",
+        "notes": "20+ tool endpoints for Vapi AI assistant. All require INTERNAL_API_KEY auth."
       },
-      {
-        "what": "Fixed finance_info endpoint to handle optional delivery_id",
-        "why": "Fontis API requires delivery_id but VAPI might not provide it. Endpoint now fetches customer's primary delivery automatically",
-        "when": "2025-10-30"
+      "customer_operations": {
+        "files": [
+          "src/api/tools/customer.py",
+          "src/services/fontis_client.py"
+        ],
+        "deps": ["FontisClient"],
+        "state": "active",
+        "notes": "Search, details, finance info. Tool IDs: 41a59e7eacc6c58f0e215dedfc650935 (search), b3846a9ea8aee18743363699e0aaa399 (details), 68b967f63fb242cde93fbbc6e77b9752 (finance)"
       },
-      {
-        "what": "Fixed products endpoint parameter validation",
-        "why": "Fontis API requires either customer_id or postal_code. Added validation to return clear error when neither provided",
-        "when": "2025-10-30"
+      "delivery_operations": {
+        "files": [
+          "src/api/tools/delivery.py",
+          "src/services/fontis_client.py"
+        ],
+        "deps": ["FontisClient"],
+        "state": "active",
+        "notes": "Stops, next delivery, defaults, schedule, work orders, pricing. Tool IDs: a8ff151f77354ae30d328f4042b7ab15 (stops), 92e47d19800cfe7724e27d11b0ec4f1a (next), f24e6d2bc336153c076f0220b45f86b6 (defaults)"
       },
-      {
-        "what": "Server URL mode for VAPI integration",
-        "why": "VAPI calls endpoints directly (not webhook handler) with Bearer token authentication",
-        "when": "2025-10-30"
+      "billing_operations": {
+        "files": [
+          "src/api/tools/billing.py",
+          "src/services/fontis_client.py"
+        ],
+        "deps": ["FontisClient"],
+        "state": "active",
+        "notes": "Balance, invoices, payment methods, expiry alerts, products. Tool IDs: cce52d0c5e5f4faa1b0e9cbc8eb420e0 (balance), aebb0c9d5881f619f77819b48aec5b53 (invoices), 75ef81ae69cf762ba58d74c48f18d230 (detail), f9b9a1ff6729cf4f69d28d188301b32e (methods), 2b4ad3fcd9ea0acf476734fc7368524f (products)"
       },
-      {
-        "what": "Enforced VAPI tool schema (strict + required params with examples)",
-        "why": "Ensure AI reliably extracts parameters and stops sending empty {} bodies",
-        "when": "2025-10-30"
+      "contract_operations": {
+        "files": [
+          "src/api/tools/contracts.py",
+          "src/services/fontis_client.py"
+        ],
+        "deps": ["FontisClient"],
+        "state": "active",
+        "notes": "Get customer contracts. Tool ID: 13e223880330066e44c1f2119c0c5aba"
       },
-      {
-        "what": "New VAPI assistant configured with 15 API request tools and detailed system prompt",
-        "why": "Switch from function tools to API request tools for better parameter handling. Professional final setup",
-        "when": "2025-10-30",
-        "assistant_id": "214d510a-23eb-415a-acc6-591e2ac697bc"
+      "route_operations": {
+        "files": [
+          "src/api/tools/routes.py",
+          "src/services/fontis_client.py"
+        ],
+        "deps": ["FontisClient"],
+        "state": "active",
+        "notes": "Get route stops for date. Tool ID: b02a838764b22f83dce17e848fa63884"
       },
-      {
-        "what": "Project cleanup - removed all non-production files",
-        "why": "Clean codebase: deleted 86+ test/debug scripts, 12 directories, all markdown docs except README.md, temporary JSON files, dashboard/static test directories",
-        "when": "2025-10-30"
+      "onboarding_operations": {
+        "files": [
+          "src/api/tools/onboarding.py",
+          "src/services/jotform_client.py",
+          "src/services/twilio_service.py"
+        ],
+        "deps": ["JotFormClient", "TwilioService"],
+        "state": "active",
+        "notes": "Send contract via JotForm, check status. Falls back to SMS if JotForm email unavailable."
       },
-      {
-        "what": "Enhanced system prompt per client requirements",
-        "why": "Comprehensive prompt aligned with Fontis Water API docs: mandatory 2-identifier verification, specific tool usage guidelines, delivery model explanations (swap vs standing order), contract types, payment handling, new customer onboarding flow, empathetic skip reason handling",
-        "when": "2025-10-30"
+      "vapi_webhooks": {
+        "files": [
+          "src/api/vapi/webhooks_handler.py"
+        ],
+        "deps": ["FontisClient", "OutboundCallService", "OutboundTrackingService"],
+        "state": "active",
+        "notes": "Handles function-call, call-start, call-end, transcript events. Routes function calls to tool endpoints. Updates Google Sheets on call completion."
       },
-      {
-        "what": "Removed duplicate/unused endpoints (webhooks.py stub, search-text variant)",
-        "why": "webhooks.py was stub implementation with TODO comments. Actual webhook handler is in vapi/webhooks_handler.py at /vapi/webhooks. search-text endpoint was unused - kept search-vapi (used by VAPI config) and search (used by tests)",
-        "when": "2025-01-XX"
+      "outbound_calls": {
+        "files": [
+          "src/api/admin/outbound_calls.py",
+          "src/services/outbound_call_service.py",
+          "src/services/vapi_client.py"
+        ],
+        "deps": ["VapiClient", "OutboundCallService"],
+        "state": "active",
+        "notes": "Declined payment, collections, delivery reminder calls. Admin endpoints for manual triggers."
       },
-      {
-        "what": "Admin outbound call APIs separated from tool endpoints",
-        "why": "Admin APIs (/admin/outbound/*) are for operational use (manual triggering via scripts/cron jobs) not VAPI calls. Purpose: declined payment notifications, collections outreach, delivery reminders. Requires API key auth but different use case than customer-facing voice agent tools",
-        "when": "2025-01-XX"
+      "batch_processing": {
+        "files": [
+          "src/api/admin/batch_processing.py",
+          "src/services/batch_orchestrator.py",
+          "src/services/declined_payment_processor.py",
+          "src/services/priority_calculator.py",
+          "src/services/batch_database.py",
+          "src/services/email_integration.py",
+          "src/services/email_monitor.py"
+        ],
+        "deps": ["FontisClient", "OutboundCallService", "BatchDatabase"],
+        "state": "active",
+        "notes": "Process CSV batches of declined payments. Day 0 SMS, priority-based outreach (calls/SMS/email). Email monitoring for CSV attachments."
+      },
+      "google_sheets_tracking": {
+        "files": [
+          "src/services/outbound_tracking_service.py",
+          "scripts/run_outbound_from_sheet.py",
+          "scripts/setup_google_sheet_from_csv.py"
+        ],
+        "deps": ["gspread", "google-auth"],
+        "state": "active",
+        "notes": "Tracks outbound call status in Google Sheets. Updates on call completion. Reads rows for bulk call initiation."
+      },
+      "tool_sync": {
+        "files": [
+          "scripts/sync_all_tools_to_vapi.py",
+          "scripts/setup_new_assistant_complete.py",
+          "scripts/create_standalone_tools.py"
+        ],
+        "deps": ["httpx"],
+        "state": "active",
+        "notes": "Syncs all tool definitions to Vapi assistant. Supports cloudflared/ngrok tunnel detection."
+      },
+      "delivery_intelligence": {
+        "files": [
+          "src/api/tools/delivery.py"
+        ],
+        "deps": ["FontisClient"],
+        "state": "active",
+        "notes": "Aggregated endpoints: delivery_summary, delivery_schedule, work_order_status, pricing_breakdown, order_change_status. Combines multiple Fontis API calls."
       }
-    ]
-  },
-  "features": {
-    "authentication": {
-      "files": ["src/core/security.py", "src/api/tools/*.py"],
-      "deps": ["INTERNAL_API_KEY"],
-      "state": "active",
-      "notes": "All 15 tool endpoints now require Bearer token authentication"
     },
-    "customer_tools": {
-      "files": ["src/api/tools/customer.py"],
-      "deps": ["FontisClient"],
-      "state": "active",
-      "notes": "Search, details, finance info endpoints - all secured and tested"
+    "debt": [
+      "Payment processing endpoints (cardadd, cardcharge, achadd, etc.) documented in ai-training-main but not implemented in middleware",
+      "Delivery modification endpoints (update-exact, create-delivery) documented but not implemented",
+      "Customer creation endpoint (create-customer-with-order) documented but not implemented",
+      "In-memory call context store in webhooks_handler.py should use Redis in production",
+      "Customer search cache is in-memory only - no shared state across instances",
+      "Batch database uses SQLite - consider PostgreSQL for production scale",
+      "Email monitoring requires IMAP credentials - consider webhook-based approach",
+      "Some tool endpoints have duplicate functionality (products vs products_catalog, get_contracts vs customer_contracts)"
+    ],
+    "env": {
+      "FONTIS_API_KEY": "Fontis Water RestAPI authentication (required, must start with 'fk_')",
+      "FONTIS_BASE_URL": "Fontis API base URL (default: https://fontisweb.creatordraft.com/api/v1)",
+      "VAPI_API_KEY": "Vapi AI platform API key (required for outbound calls)",
+      "VAPI_PUBLIC_KEY": "Vapi public key for Web SDK (browser-side)",
+      "VAPI_ASSISTANT_ID": "Vapi assistant ID for inbound calls",
+      "VAPI_ASSISTANT_ID_OUTBOUND": "Optional outbound-specific assistant ID override",
+      "VAPI_WEBHOOK_SECRET": "Secret for verifying Vapi webhook signatures (required in production)",
+      "INTERNAL_API_KEY": "Shared secret for tool endpoint authentication (min 32 chars in production)",
+      "JOTFORM_API_KEY": "JotForm API key for contract generation",
+      "JOTFORM_FORM_ID": "JotForm form ID for customer onboarding",
+      "JOTFORM_PREFILL_MAP": "JSON mapping of canonical fields to JotForm field keys",
+      "TWILIO_ACCOUNT_SID": "Twilio Account SID for SMS fallback",
+      "TWILIO_AUTH_TOKEN": "Twilio Auth Token",
+      "TWILIO_FROM_NUMBER": "Twilio phone number for sending SMS",
+      "GOOGLE_SERVICE_ACCOUNT_JSON": "Path to Google service account JSON or inline JSON string",
+      "GOOGLE_SPREADSHEET_ID": "Google Sheets spreadsheet ID for outbound tracking",
+      "GOOGLE_WORKSHEET_TITLE": "Worksheet title (default: 2025)",
+      "EMAIL_IMAP_SERVER": "IMAP server for CSV batch monitoring (e.g., imap.gmail.com)",
+      "EMAIL_ADDRESS": "Email address to monitor for CSV attachments",
+      "EMAIL_PASSWORD": "Email password or app password for IMAP",
+      "CSV_DOWNLOAD_DIR": "Directory to save downloaded CSV files (default: data/csv_batches)",
+      "APP_ENV": "Application environment: development|staging|production",
+      "LOG_LEVEL": "Logging level: debug|info|warning|error|critical",
+      "LOG_FORMAT": "Log format: json|console (json for prod, console for dev)",
+      "CORS_ORIGINS": "Comma-separated list of allowed CORS origins (required in production)"
     },
-    "billing_tools": {
-      "files": ["src/api/tools/billing.py"],
-      "deps": ["FontisClient"],
-      "state": "active",
-      "notes": "Balance, invoices, products, payment methods - all secured and tested"
+    "tool_ids": {
+      "customer_search": "41a59e7eacc6c58f0e215dedfc650935",
+      "customer_details": "b3846a9ea8aee18743363699e0aaa399",
+      "delivery_stops": "a8ff151f77354ae30d328f4042b7ab15",
+      "finance_info": "68b967f63fb242cde93fbbc6e77b9752",
+      "invoice_history": "aebb0c9d5881f619f77819b48aec5b53",
+      "invoice_detail": "75ef81ae69cf762ba58d74c48f18d230",
+      "account_balance": "cce52d0c5e5f4faa1b0e9cbc8eb420e0",
+      "payment_methods": "f9b9a1ff6729cf4f69d28d188301b32e",
+      "products": "2b4ad3fcd9ea0acf476734fc7368524f",
+      "next_scheduled_delivery": "92e47d19800cfe7724e27d11b0ec4f1a",
+      "default_products": "f24e6d2bc336153c076f0220b45f86b6",
+      "last_delivery_orders": "b4e4f83221662ac8d966ec9e5cc6cfb2",
+      "customer_contracts": "13e223880330066e44c1f2119c0c5aba",
+      "route_stops": "b02a838764b22f83dce17e848fa63884",
+      "delivery_schedule": "248fa66e8012d7f62a7ca15199a7e67e"
     },
-    "delivery_tools": {
-      "files": ["src/api/tools/delivery.py"],
-      "deps": ["FontisClient"],
-      "state": "active",
-      "notes": "Stops, schedules, orders - all secured and tested"
+    "endpoints": {
+      "customer": {
+        "/tools/customer/search": "POST - Search customers (returns JSON)",
+        "/tools/customer/search-vapi": "POST - Search customers (returns plain text, optimized for Vapi)",
+        "/tools/customer/details": "POST - Get customer details by ID",
+        "/tools/customer/finance-info": "POST - Combined finance and delivery snapshot"
+      },
+      "delivery": {
+        "/tools/delivery/stops": "POST - Get all delivery stops for customer",
+        "/tools/delivery/next-scheduled": "POST - Get next scheduled delivery",
+        "/tools/delivery/default-products": "POST - Get standing order defaults",
+        "/tools/delivery/orders/search": "POST - Search delivery orders",
+        "/tools/delivery/summary": "POST - Aggregate delivery context",
+        "/tools/delivery/schedule": "POST - Get delivery schedule for date range",
+        "/tools/delivery/work-orders": "POST - Get recent off-route orders",
+        "/tools/delivery/pricing-breakdown": "POST - Standing order pricing with catalog",
+        "/tools/delivery/order-change-status": "POST - Check pending order changes"
+      },
+      "billing": {
+        "/tools/billing/balance": "POST - Get account balance summary",
+        "/tools/billing/invoice-history": "POST - Get invoice and payment history",
+        "/tools/billing/invoice-detail": "POST - Get detailed invoice line items",
+        "/tools/billing/payment-methods": "POST - Get stored payment methods",
+        "/tools/billing/payment-expiry-alerts": "POST - Detect expired/expiring payment methods",
+        "/tools/billing/products": "POST - Get product catalog and pricing"
+      },
+      "contracts": {
+        "/tools/contracts/get-contracts": "POST - Get customer service agreements"
+      },
+      "routes": {
+        "/tools/routes/stops": "POST - Get all stops on route for date"
+      },
+      "onboarding": {
+        "/tools/onboarding/send-contract": "POST - Send onboarding contract via JotForm",
+        "/tools/onboarding/contract-status": "POST - Check contract submission status"
+      },
+      "admin": {
+        "/admin/outbound/declined-payment": "POST - Initiate declined payment call",
+        "/admin/outbound/collections": "POST - Initiate collections call",
+        "/admin/outbound/delivery-reminder": "POST - Send delivery reminder (call or SMS)",
+        "/admin/outbound/call-status/{call_id}": "GET - Get outbound call status",
+        "/admin/batch/process-csv": "POST - Process declined payment CSV batch",
+        "/admin/batch/check-email": "POST - Check email for CSV attachments and process",
+        "/admin/batch/daily-outreach": "POST - Trigger daily priority-based outreach",
+        "/admin/batch/process-customer/{customer_id}": "POST - Process single customer outreach"
+      },
+      "vapi": {
+        "/vapi/webhooks": "POST - Vapi webhook handler (function-call, call-start, call-end, transcript)"
+      },
+      "core": {
+        "/": "GET - Service information",
+        "/health": "GET - Health check",
+        "/docs": "GET - Swagger UI (disabled in production)",
+        "/api/config": "GET - Vapi configuration for Web SDK",
+        "/api/tunnel/status": "GET - Check cloudflared/ngrok tunnel status"
+      }
+    },
+    "business_rules": {
+      "customer_verification": "MUST confirm at least TWO identifiers (name + address, or name + phone, or address + account number) before accessing account details",
+      "delivery_model": "quantity=0 = SWAP model (exchange empties), quantity>0 = STANDING ORDER (fixed amount)",
+      "contract_types": "Water-only = month-to-month, Equipment rental = 12-month auto-renewing with $100 early termination fee",
+      "route_delivery": "20-business-day rotation (~every 4 weeks). Regular route = $3.30 fee, Off-route = $25 convenience fee + 3-item minimum",
+      "invoice_frequency": "Accounts typically show multiple invoices per month (delivery charges + equipment rental)",
+      "payment_security": "NEVER expose VaultId, PayId, Document GUIDs, or internal tokens to users",
+      "skip_reasons": "Most common: 'No Bottles Out'. Empathetic explanation required - reminders sent before route day",
+      "pdf_documents": "NEVER offer to email PDFs - refer to Customer Service if requested"
+    },
+    "workflows": {
+      "declined_payment": {
+        "files": ["ai-training-main/Workflows/declinedautopay.md"],
+        "steps": ["CSV batch received", "Match customers", "Day 0 SMS", "Priority calculation", "Day 1+ outreach (calls/SMS/email)"],
+        "priority_factors": ["Days until next delivery", "Account balance status", "Repeat decline status"]
+      },
+      "next_delivery": {
+        "files": ["ai-training-main/Workflows/nextdelivery.md"],
+        "steps": ["Customer verification", "Get delivery stops", "Get next scheduled delivery", "Explain delivery details"]
+      },
+      "new_customer_onboarding": {
+        "steps": ["Answer product questions", "Collect customer info", "Send JotForm contract", "Set expectations (24hr review)"]
+      }
+    },
+    "testing": {
+      "framework": "pytest with pytest-asyncio",
+      "files": [
+        "tests/conftest.py",
+        "tests/test_customer_search.py",
+        "tests/test_customer_details.py",
+        "tests/test_invoice_history.py",
+        "tests/test_delivery_intelligence.py",
+        "tests/test_payment_expiry_alerts.py",
+        "tests/test_onboarding_contract.py"
+      ],
+      "fixtures": ["client", "auth_headers", "sample_customer_search_response", "sample_customer_details_response", "sample_invoice_history_response"],
+      "coverage": "Tests cover tool endpoints, error handling, authentication, and business logic validation"
+    },
+    "ai_training_data": {
+      "location": "ai-training-main/",
+      "structure": {
+        "Company/": "Business overview, products, services, pricing, contracts, delivery operations",
+        "Endpoints/": "API endpoint documentation organized by resource type",
+        "Workflows/": "Step-by-step guides for common customer service scenarios"
+      },
+      "endpoint_categories": {
+        "customers/": "15 endpoints - search, details, deliveries, invoices, billing, contracts, products, orders",
+        "deliveries/": "4 endpoints - defaults, frequencies, next, schedule",
+        "orders/": "1 endpoint - search",
+        "routes/": "1 endpoint - stops",
+        "prospects/": "1 endpoint - create-customer-with-order (not implemented)",
+        "schedule/": "1 endpoint - update-exact (not implemented)",
+        "unrouted/": "9 endpoints - payment methods, delivery creation (not implemented)"
+      },
+      "documented_but_not_implemented": [
+        "cardadd", "cardcharge", "cardchargenonvault", "cardchargenonvaultinvoices", "cardchargeinvoices", "cardremove",
+        "achadd", "achchargegeneral", "achchargenonvault", "achchargevault", "achremove",
+        "create-customer-with-order", "create-delivery", "update-exact", "contact-methods"
+      ]
+    },
+    "scripts": {
+      "sync_all_tools_to_vapi.py": "Syncs all 20+ tool definitions to Vapi assistant. Detects cloudflared/ngrok tunnel.",
+      "setup_new_assistant_complete.py": "Complete assistant setup with system prompt and API request tools",
+      "run_outbound_from_sheet.py": "Reads Google Sheets rows and triggers outbound calls at scale with concurrency control",
+      "setup_google_sheet_from_csv.py": "Initializes Google Sheet from CSV with tracking columns",
+      "ingest_email_csv_to_sheet.py": "Processes CSV from email and imports to Google Sheet",
+      "email_poll_worker.py": "Background worker for monitoring email for CSV attachments",
+      "email_to_outbound_pipeline.py": "Pipeline connecting email monitoring to outbound processing",
+      "test_batch_processing.py": "Tests for batch processing functionality",
+      "update_vapi_prompt.py": "Updates Vapi assistant system prompt from setup script",
+      "verify_vapi_tools.py": "Verifies tools are correctly configured in Vapi assistant",
+      "check_vapi_tools.py": "Checks expected vs actual tools in assistant",
+      "deploy_to_fly.ps1": "PowerShell script for Fly.io deployment",
+      "deploy_with_keys.ps1": "Deployment script with environment variable injection",
+      "start_dev.ps1": "Development server startup script",
+      "cleanup_project.py": "Project cleanup utility",
+      "cleanup.ps1": "PowerShell cleanup script",
+      "service_account_loader.py": "Helper for loading Google service account credentials"
+    },
+    "services": {
+      "FontisClient": {
+        "file": "src/services/fontis_client.py",
+        "purpose": "Async HTTP client for Fontis Water RestAPI",
+        "features": ["Connection pooling", "Retry logic with exponential backoff", "15+ endpoint methods", "Custom exception handling"],
+        "timeout": "30s default, configurable",
+        "retries": "3 max, configurable"
+      },
+      "VapiClient": {
+        "file": "src/services/vapi_client.py",
+        "purpose": "HTTP client for Vapi AI platform",
+        "features": ["Outbound call initiation", "SMS sending", "Call status tracking"]
+      },
+      "JotFormClient": {
+        "file": "src/services/jotform_client.py",
+        "purpose": "JotForm API integration for contract generation",
+        "features": ["Pre-filled form links", "Email invitations", "Submission status tracking"]
+      },
+      "TwilioService": {
+        "file": "src/services/twilio_service.py",
+        "purpose": "SMS notifications via Twilio",
+        "features": ["Lazy initialization", "Graceful degradation if not configured"]
+      },
+      "OutboundCallService": {
+        "file": "src/services/outbound_call_service.py",
+        "purpose": "Manages outbound calls via Vapi",
+        "features": ["Call initiation with metadata", "SMS fallback", "Phone number caching"]
+      },
+      "BatchOrchestrator": {
+        "file": "src/services/batch_orchestrator.py",
+        "purpose": "Coordinates declined payment batch processing",
+        "features": ["CSV processing", "Priority calculation", "Day 0 SMS", "Daily outreach"]
+      },
+      "PriorityCalculator": {
+        "file": "src/services/priority_calculator.py",
+        "purpose": "Calculates outreach priority for declined payments",
+        "factors": ["Days until next delivery", "Account balance", "Repeat decline status"]
+      },
+      "BatchDatabase": {
+        "file": "src/services/batch_database.py",
+        "purpose": "SQLite database for tracking declined payments",
+        "tables": ["batches", "customer_declines", "outreach_history"]
+      },
+      "OutboundTrackingService": {
+        "file": "src/services/outbound_tracking_service.py",
+        "purpose": "Updates Google Sheets with call outcomes",
+        "columns": ["outbound_status", "outbound_call_id", "outbound_last_attempt_utc", "outbound_error"]
+      },
+      "EmailIntegrationService": {
+        "file": "src/services/email_integration.py",
+        "purpose": "IMAP email integration for CSV monitoring",
+        "features": ["CSV attachment detection", "File download", "Email marking"]
+      },
+      "Cache": {
+        "file": "src/services/cache.py",
+        "purpose": "In-memory cache with TTL",
+        "usage": "Customer search results (60s TTL)"
+      }
+    },
+    "schemas": {
+      "tools.py": "Pydantic models for all tool endpoint parameters. Supports camelCase/snake_case aliases.",
+      "vapi.py": "Pydantic models for Vapi webhook payloads and function calls",
+      "fontis.py": "Fontis API response models (if any)"
+    },
+    "core_modules": {
+      "config.py": "Pydantic Settings for environment variable management. Validates API keys, CORS, etc.",
+      "deps.py": "FastAPI dependencies - FontisClient singleton, webhook verification",
+      "exceptions.py": "Custom exception hierarchy with error codes, retryable flags",
+      "security.py": "API key verification for tool endpoints"
+    },
+    "deployment": {
+      "platform": "Fly.io",
+      "config_file": "fly.toml",
+      "processes": {
+        "app": "uvicorn src.main:app --host 0.0.0.0 --port 8000",
+        "worker": "python -m scripts.email_poll_worker"
+      },
+      "dockerfile": "Production-ready with non-root user, health checks",
+      "auto_scaling": "Auto-stop/start machines, min 0 running"
     },
     "vapi_integration": {
-      "files": [
-        "src/api/vapi/webhooks_handler.py",
-        "scripts/sync_all_tools_to_vapi.py",
-        "scripts/enforce_tool_schema.py",
-        "scripts/setup_new_assistant_complete.py"
-      ],
-      "deps": ["VAPI_API_KEY", "VAPI_ASSISTANT_ID", "INTERNAL_API_KEY"],
-      "state": "active",
-      "notes": "15 API request tools configured on new assistant 214d510a-23eb-415a-acc6-591e2ac697bc with detailed system prompt"
+      "tool_count": "20+",
+      "sync_method": "Function tools with server.url pointing to backend endpoints",
+      "authentication": "INTERNAL_API_KEY in server.secret",
+      "webhook_verification": "HMAC-SHA256 signature verification for call events",
+      "function_routing": "webhooks_handler.py routes function_name to appropriate tool endpoint",
+      "call_context": "In-memory store for customerId/deliveryId during call (should be Redis in prod)"
     },
-    "audit_scripts": {
-      "files": [
-        "scripts/audit_endpoints.py",
-        "scripts/test_auth_endpoints.py",
-        "scripts/test_vapi_tool_call.py"
-      ],
-      "deps": [],
-      "state": "active",
-      "notes": "Comprehensive testing scripts for endpoint validation"
+    "business_context": {
+      "company": "Fontis Water - Water delivery service",
+      "assistant_name": "Riley",
+      "use_cases": {
+        "inbound": ["New customer sales", "Account inquiries", "Delivery questions", "Billing questions", "Payment issues"],
+        "outbound": ["Declined payment notifications", "Collections calls", "Delivery reminders"]
+      },
+      "customer_flow": "Search → Verify (2 identifiers) → Get deliveryId → Access account data",
+      "delivery_rotation": "20-business-day cycle (~every 4 weeks, ~13 deliveries/year)",
+      "pricing": {
+        "regular_route": "$3.30 delivery fee",
+        "off_route": "$25 convenience fee + 3-item minimum",
+        "equipment_rental": "12-month auto-renewing contract"
+      }
     },
-    "admin_outbound_calls": {
-      "files": ["src/api/admin/outbound_calls.py"],
-      "deps": ["INTERNAL_API_KEY", "OutboundCallService"],
-      "state": "active",
-      "notes": "Admin endpoints for manual outbound call triggering. Used by scripts/cron jobs to initiate declined payment calls, collections calls, and delivery reminders. Not called by VAPI - these are operational/admin tools for staff to proactively contact customers."
+    "file_structure": {
+      "src/": "Main application code",
+      "src/api/tools/": "Tool endpoint implementations",
+      "src/api/admin/": "Admin endpoints for batch processing and outbound calls",
+      "src/api/vapi/": "Vapi webhook handlers",
+      "src/services/": "Business logic and external API clients",
+      "src/core/": "Core utilities (config, deps, exceptions, security)",
+      "src/schemas/": "Pydantic models for request/response validation",
+      "tests/": "Pytest test suite",
+      "scripts/": "Utility scripts for deployment, tool sync, batch processing",
+      "ai-training-main/": "AI training documentation synchronized with production",
+      "docs/": "Project documentation and API summaries",
+      "data/": "CSV batches and batch tracking database"
     }
-  },
-  "debt": [],
-  "env": {
-    "FONTIS_API_KEY": "Fontis Water RestAPI authentication key (required)",
-    "INTERNAL_API_KEY": "Shared secret for tool endpoint authentication (required, min 32 chars in prod)",
-    "VAPI_API_KEY": "VAPI platform API key for assistant management",
-    "VAPI_ASSISTANT_ID": "VAPI assistant ID for tool syncing",
-    "VAPI_PUBLIC_KEY": "VAPI public key for browser SDK",
-    "JOTFORM_API_KEY": "JotForm API key for contract generation",
-    "CORS_ORIGINS": "Allowed CORS origins (required in production, no wildcards)"
-  },
-  "testing": {
-    "audit_summary": {
-      "total_endpoints": 15,
-      "secured_endpoints": 15,
-      "working_endpoints": 15,
-      "test_scenarios": 18,
-      "passed_scenarios": 15,
-      "test_coverage": "100%",
-      "last_tested": "2025-10-30",
-      "success_rate": "83.3% (failures are test data issues, not bugs)"
-    },
-    "key_findings": [
-      "All 15 endpoints require authentication (Bearer token)",
-      "All endpoints return 403 without valid INTERNAL_API_KEY",
-      "All endpoints validate parameters and return 422 on missing required params",
-      "Finance info endpoint handles optional delivery_id gracefully",
-      "Products endpoint requires customer_id (Fontis API limitation)",
-      "Search orders works with valid delivery_id (test used fake ID)",
-      "JotForm integration requires configuration (optional feature)"
-    ],
-    "vapi_integration_status": "Production Ready - All core endpoints working",
-    "test_failures_explained": [
-      "finance_info without delivery_id: Returns success:false with message (correct behavior)",
-      "search_orders: Fontis API 400 due to invalid test delivery_id (endpoint works with real data)",
-      "products with postal_code only: Fontis API requires customer_id in URL path (API design limitation)",
-      "send_contract: JotForm not configured (optional feature, not required for core functionality)"
-    ],
-    "known_behaviors": [
-      "VAPI sends {} when it can't extract parameters from conversation - this causes expected 422 validation errors",
-      "VAPI 'No result returned' message appears when endpoint returns success:false or empty data - this is normal behavior, not error",
-      "422 errors from VAPI = parameter extraction issue, not backend issue",
-      "All endpoints handle missing data gracefully with helpful error messages"
-    ]
-  },
-  "deployment": {
-    "platform": "Fly.io",
-    "url": "https://fontis-voice-agent.fly.dev",
-    "last_deployed": "2025-10-30",
-    "status": "Production",
-    "notes": "All authentication fixes and endpoint improvements deployed and tested"
   }
-}

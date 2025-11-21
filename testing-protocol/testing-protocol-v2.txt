@@ -1,0 +1,674 @@
+CLIENT TESTING PROTOCOL FOR FONTIS WATER VOICE AGENT - VERSION 2.0
+
+Version: 2.0
+Date: November 19, 2025
+Purpose: Comprehensive testing protocol to verify AI voice agent functionality with real customer data and updated behaviors.
+
+================================================================================
+
+TEST ENVIRONMENT DETAILS
+
+Test Phone Number: +1 (678) 303-4022
+
+Approved Test Accounts (Use ONLY these accounts for testing):
+
+1. Jamie Carroll
+   - Account ID: 002864
+   - Use for general account inquiries
+
+2. Mary Raugh
+   - Account ID: 001001
+   - Use for delivery and billing tests
+
+3. Edward Carroll
+   - Account ID: 002302
+   - Use for equipment and contract tests
+
+Note: Do NOT use the previous test account (Ramonda Jackson 006646) as it may have outdated data.
+
+================================================================================
+
+BEFORE YOU START
+
+Important Notes:
+- The AI agent will ask for TWO pieces of information to verify your identity
+- Always use one of the approved test accounts listed above
+- Take detailed notes on anything that doesn't work as expected
+- You can call multiple times if needed
+- Test each scenario thoroughly before marking as pass/fail
+
+What to Listen For:
+
+Pronunciation:
+- "Route" should be pronounced as "ROWT" (rhymes with "out"), NOT "root"
+- Phone numbers should be spoken SLOWLY and clearly
+- Addresses should say "Road" not "Rd."
+
+Communication Style:
+- Agent should say "Let me check..." before long pauses
+- Dates should NOT include year (e.g., "November 24th" not "November 24th, 2025")
+- Agent should NOT say "You have no past due balance" unless specifically asked
+- Agent should provide specific details, not just acknowledge receipt
+
+Data Security:
+- Agent should verify TWO identifiers before sharing account details
+- Agent should NEVER share internal IDs (customerId, deliveryId, etc.)
+- Agent should NEVER read full card numbers (only last 4 digits)
+
+================================================================================
+
+TEST 1: NEW CUSTOMER INQUIRY & ONBOARDING
+
+Time Required: 8-10 minutes
+
+What to Do:
+Call as if you're a new customer interested in water delivery service.
+
+Test Steps:
+1. Call +1 (678) 303-4022
+2. Say: "I'm interested in water delivery for my home"
+3. Ask: "What products do you offer?"
+4. Ask: "How much does it cost?"
+5. Ask: "How does delivery work?"
+6. Ask: "What's your delivery schedule?"
+7. Say: "I'd like to sign up"
+8. When asked: "What products are you interested in getting started with?" - Answer with a product (e.g., "5-gallon spring water")
+9. Provide information when asked (one question at a time):
+   - Full name
+   - Service address with zip code
+   - Phone number
+   - Email address (spell it out)
+10. Verify you receive SMS with contract link
+
+What Should Happen:
+- Agent answers with professional greeting: "Hello! I'm Riley from Fontis Water. How can I help you today?"
+- Agent explains products clearly (bottled water, coolers, filtration systems)
+- Agent provides pricing information from Company knowledge (not from API for new customers)
+- Agent explains delivery schedule (every 20 business days, route-based)
+- Agent asks "What products are you interested in getting started with?" BEFORE collecting personal info
+- Agent asks questions ONE AT A TIME and waits for each answer
+- Agent asks for phone number BEFORE email address
+- Agent does NOT ask for state (defaults to GA)
+- Agent says "I'm sending your service agreement via text message now. You'll receive a text with the link shortly."
+- You receive SMS with contract link within 2 minutes
+- Agent does NOT say "here is the link" - customer receives it automatically via SMS
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document any issues here - pronunciation, missing information, incorrect flow, etc.]
+
+================================================================================
+
+TEST 2: EXISTING CUSTOMER - IDENTITY VERIFICATION & ACCOUNT LOOKUP
+
+Time Required: 8-10 minutes
+
+What to Do:
+Test the identity verification process and account lookup using different methods.
+
+Test Steps:
+
+Scenario A: Search by Service Address First
+1. Call +1 (678) 303-4022
+2. Say: "Hi, I need help with my account"
+3. When asked for account info, provide: Service Address (use address from one of the test accounts)
+4. Observe if agent:
+   - States the customer name found
+   - Asks you to confirm if that's you
+   - OR asks for additional verification if Caller ID doesn't match
+
+Scenario B: Search by Account Number
+1. Call again (or continue same call)
+2. Provide: Account Number (e.g., 002864)
+3. Observe if agent:
+   - Asks you to verify Service Address or Name before proceeding
+   - Verifies TWO identifiers before sharing account details
+
+Scenario C: Search by Phone Number
+1. Call again (or continue same call)
+2. Provide: Phone Number from test account
+3. Observe verification process
+
+What Should Happen:
+- Agent asks for Service Address FIRST when starting lookup
+- If Caller ID matches address found -> Agent states name and asks for confirmation
+- If Caller ID does NOT match -> Agent asks customer to confirm full name on account
+- If customer provides Account Number -> Agent MUST verify Service Address or Name before proceeding
+- Agent verifies TWO identifiers before sharing any account details
+- Agent says "Ok great, I found your account. Can you verify your service address or phone number to confirm the account?"
+- Agent waits for second identifier before proceeding
+- Agent confirms both identifiers match before sharing account information
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Verification Details:
+- Identity verified with TWO identifiers before sharing data?
+  [ ] Yes  [ ] No
+- Service address lookup worked?
+  [ ] Yes  [ ] No
+- Account number lookup worked?
+  [ ] Yes  [ ] No
+- Phone number lookup worked?
+  [ ] Yes  [ ] No
+
+Issues Found:
+[Document any issues with verification process, lookup failures, etc.]
+
+================================================================================
+
+TEST 3: ACCOUNT DETAILS & NEXT DELIVERY
+
+Time Required: 5-7 minutes
+
+What to Do:
+Call as existing customer and ask about account details and next delivery.
+
+Test Steps:
+1. Call and verify identity (use Account 001001 or 002864)
+2. Ask: "Can you tell me about my account?"
+3. Ask: "When is my next delivery scheduled?"
+4. Ask: "What's my next delivery date?"
+
+What Should Happen:
+- Agent provides account summary after verification
+- Agent provides next delivery date in format: "Your next scheduled delivery is on [date] at [street address]"
+- Date does NOT include year (e.g., "November 24th" not "November 24th, 2025")
+- Address format: "Road" not "Rd." (e.g., "1098 Stringer Road")
+- Agent does NOT include city/state/zip unless specifically requested
+- Agent provides route information if available
+- Information matches actual account records
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document any issues - wrong dates, incorrect format, missing information, etc.]
+
+================================================================================
+
+TEST 4: BOTTLE COUNTS & DELIVERY HISTORY
+
+Time Required: 8-10 minutes
+
+What to Do:
+Test the critical bottle count functionality that was previously failing.
+
+Test Steps:
+1. Call and verify identity (use Account 001001 or 002864)
+2. Ask: "How many bottles am I scheduled to receive?"
+3. Ask: "How many bottles did I get on my last delivery?"
+4. Ask: "What did I receive on my last delivery?"
+5. Ask: "Can you tell me about my last delivery?"
+
+What Should Happen:
+- Agent uses invoice_history to get recent invoices
+- Agent then uses invoice_detail on the most recent invoice to get exact bottle counts
+- Agent provides specific context: "On your last delivery on [date], you exchanged [X] bottles" or "Your most recent invoice shows [X] bottles delivered"
+- Agent does NOT just report invoice balances - provides detailed bottle count information
+- Agent provides scheduled bottle quantities using default_products tool
+- Agent explains standing order vs swap model if applicable
+- All bottle counts are accurate and match invoice records
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Critical Check:
+- Did agent provide specific bottle counts from invoice details?
+  [ ] Yes - Provided detailed bottle counts with dates
+  [ ] No - Only provided invoice balances without details
+
+Issues Found:
+[Document if agent failed to use invoice_detail, only provided balances, or gave incorrect bottle counts]
+
+================================================================================
+
+TEST 5: INVOICE HISTORY & DETAILS
+
+Time Required: 7-10 minutes
+
+What to Do:
+Test invoice retrieval and detailed breakdown functionality.
+
+Test Steps:
+1. Call and verify identity
+2. Ask: "What are my charges this month and what do they cover?"
+3. Ask: "Can you break down my most recent invoice?"
+4. Ask: "What was on my last invoice?"
+5. Ask: "When was my last payment and how much was it?"
+
+What Should Happen:
+- Agent uses invoice_history to get recent invoices and payments
+- Agent uses invoice_detail on most recent invoice to provide breakdown
+- Agent lists itemized charges (water delivery, equipment rental, delivery fees)
+- Agent provides last payment date and amount
+- Agent explains that accounts typically have multiple invoices per month (delivery + equipment)
+- Agent does NOT use "Payment" invoiceKeys for invoice_detail (returns no data)
+- All information is accurate and matches account records
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document if agent failed to provide invoice breakdowns, only listed dates/amounts, or gave incorrect information]
+
+================================================================================
+
+TEST 6: EQUIPMENT INQUIRIES
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test equipment inquiry functionality (previously was using wrong tool).
+
+Test Steps:
+1. Call and verify identity (use Account 002302 if available, or any account with equipment)
+2. Ask: "What equipment do I have on my account?"
+3. Ask: "What coolers or dispensers are on my account?"
+4. Ask: "What am I being charged for equipment?"
+
+What Should Happen:
+- Agent uses invoice_detail on the most recent invoice to list equipment
+- Agent does NOT use customer_contracts tool for equipment details
+- Agent lists equipment types (coolers, dispensers) currently being billed
+- Agent provides rental fees if applicable
+- Agent explains equipment is found on invoice line items, not contracts
+- Information matches actual account equipment records
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Critical Check:
+- Did agent use invoice_detail (correct) or contracts tool (incorrect)?
+  [ ] Used invoice_detail (CORRECT)
+  [ ] Used contracts tool (INCORRECT - this was the previous issue)
+
+Issues Found:
+[Document if agent used wrong tool, couldn't find equipment, or provided incorrect information]
+
+================================================================================
+
+TEST 7: BALANCE & PAYMENT METHODS
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test balance reporting and payment method retrieval.
+
+Test Steps:
+1. Call and verify identity
+2. Ask: "What's my current account balance?"
+3. Ask: "Do I have any past due balance?"
+4. Ask: "What payment method do you have on file?"
+5. Ask: "Is my card set up for autopay?"
+
+What Should Happen:
+- Agent provides current balance amount
+- Agent ONLY mentions past due balance if it exists (> $0)
+- Agent does NOT say "You have no past due balance" unless specifically asked
+- Agent describes payment method (card type + last 4 digits ONLY, e.g., "VISA ending in 3758")
+- Agent provides autopay status
+- Agent NEVER reads full card numbers
+- Agent NEVER shares vault IDs or internal tokens
+- All information is accurate
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document if agent mentioned past due when none exists, shared sensitive data, or gave incorrect information]
+
+================================================================================
+
+TEST 8: STANDING ORDERS & PRODUCTS
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test standing order and product information retrieval.
+
+Test Steps:
+1. Call and verify identity
+2. Ask: "What products are on my standing order?"
+3. Ask: "How many bottles am I set to receive each delivery?"
+4. Ask: "Am I on a swap model or standing order?"
+5. Ask: "What's my default delivery?"
+
+What Should Happen:
+- Agent uses default_products tool to get standing order information
+- Agent explains swap model (quantity = 0) vs standing order (quantity > 0)
+- Agent provides product types and quantities
+- Agent explains what customer receives each delivery
+- Information matches actual account settings
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document any issues with standing order retrieval or explanations]
+
+================================================================================
+
+TEST 9: DRIVER NAME & ROUTE INFORMATION
+
+Time Required: 3-5 minutes
+
+What to Do:
+Test driver name inquiry (should return specific response).
+
+Test Steps:
+1. Call and verify identity
+2. Ask: "Who is my delivery driver?"
+3. Ask: "What's my driver's name?"
+
+What Should Happen:
+- Agent states: "Specific driver assignments are not available via this system."
+- Agent does NOT try to look up driver information (endpoint doesn't exist)
+- Agent handles gracefully without errors
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document if agent tried to look up driver info or gave incorrect response]
+
+================================================================================
+
+TEST 10: ORDER CHANGES & WORK ORDERS
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test order change status and work order inquiries.
+
+Test Steps:
+1. Call and verify identity
+2. Ask: "Did my recent order change go through?"
+3. Ask: "What's the status of my work order?"
+4. Ask: "When will my equipment be picked up or delivered?"
+
+What Should Happen:
+- Agent uses order_change_status to check for pending changes
+- Agent uses work_order_status or search_orders for work orders
+- Agent provides status or confirms no pending changes/orders
+- If system error occurs, agent offers to transfer to customer service
+- Agent handles gracefully whether orders exist or not
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document any issues with order/work order retrieval or error handling]
+
+================================================================================
+
+TEST 11: COMMUNICATION QUALITY & BEHAVIOR
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test overall communication quality, pronunciation, and behavior improvements.
+
+Test Steps:
+1. Call and verify identity
+2. Ask several questions and observe:
+   - Pronunciation of "route" (should be "ROWT")
+   - Phone number reading speed (should be SLOW)
+   - Date format (should NOT include year)
+   - Pause handling (should say "Let me check..." before long pauses)
+   - Address format (should say "Road" not "Rd.")
+
+What Should Happen:
+- "Route" pronounced as "ROWT" (rhymes with "out"), NEVER "root"
+- Phone numbers spoken SLOWLY and clearly
+- Dates without year: "November 24th" not "November 24th, 2025"
+- Agent says "Let me check..." or "One moment while I look into your account..." before long pauses
+- No dead air/silence without explanation
+- Addresses use "Road" not "Rd." (e.g., "1098 Stringer Road")
+- Agent provides specific details, not just acknowledgments
+- Agent does NOT say "You have no past due balance" unless specifically asked
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Pronunciation & Format Checks:
+- "Route" pronounced correctly (ROWT)?
+  [ ] Yes  [ ] No
+- Phone numbers spoken slowly?
+  [ ] Yes  [ ] No
+- Dates without year?
+  [ ] Yes  [ ] No
+- Agent avoids dead air?
+  [ ] Yes  [ ] No
+- Addresses use "Road" format?
+  [ ] Yes  [ ] No
+
+Issues Found:
+[Document pronunciation issues, format problems, dead air, or other communication quality issues]
+
+================================================================================
+
+TEST 12: EDGE CASES & ERROR HANDLING
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test how the agent handles unusual situations and errors.
+
+Test Steps:
+
+1. Wrong Account Number Test:
+   - Call and provide incorrect account ID (e.g., 999999)
+   - See if agent handles this gracefully
+
+2. Unclear Question Test:
+   - Ask: "When is my thing coming?"
+   - Agent should ask for clarification
+
+3. Request Transfer Test:
+   - Say: "I need to speak to a real person" or "I need help with something you can't do"
+   - Agent should offer to transfer
+
+4. System Error Test:
+   - Ask a question that might trigger an error
+   - Observe error handling
+
+What Should Happen:
+- Agent politely asks for correct information if account not found
+- Agent asks clarifying questions when request is unclear: "Are you asking about your next water delivery, a work order, or something else?"
+- Agent offers to transfer to customer service: "I'm unable to assist with this issue. Let me transfer you to our customer service team."
+- Transfer number provided: +1 (678) 303-4022 (main office number, NOT AI agent number)
+- Agent handles system errors gracefully with transfer offer
+- Agent remains professional and helpful throughout
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document any issues with error handling, unclear responses, or incorrect transfer information]
+
+================================================================================
+
+TEST 13: CONTRACT INFORMATION
+
+Time Required: 5-7 minutes
+
+What to Do:
+Test contract retrieval and explanation (should NOT be used for equipment).
+
+Test Steps:
+1. Call and verify identity
+2. Ask: "What type of contract do I have?"
+3. Ask: "When does my contract expire?"
+4. Ask: "Am I under a contract?"
+5. Ask: "What are my contract terms?"
+
+What Should Happen:
+- Agent uses get_contracts or customer_contracts tool
+- Agent explains contract type (water-only = month-to-month, equipment = 12-month)
+- Agent provides contract start/end dates and renewal terms
+- Agent does NOT use contracts tool for equipment details (uses invoice_detail instead)
+- Agent explains terms clearly in plain language
+- Information matches actual contract records
+
+Test Results:
+
+Status: [ ] Pass  [ ] Fail  [ ] Needs Revision
+
+Issues Found:
+[Document if agent used contracts tool for equipment (incorrect) or provided wrong contract information]
+
+================================================================================
+
+GENERAL QUALITY ASSESSMENT
+
+Rate These Elements (1=Poor, 5=Excellent)
+
+Voice Quality & Professionalism:
+- Agent sounds natural:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+- Agent sounds professional:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+- Agent tone is friendly:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+
+Performance & Understanding:
+- Agent responds quickly (no long pauses):
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+- Agent understands questions:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+- Agent provides clear answers:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+
+Accuracy & Security:
+- Information provided is accurate:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+- Agent protects sensitive data:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+- Agent verifies identity properly:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+
+Overall Experience:
+- Overall satisfaction:
+  [ ] 1  [ ] 2  [ ] 3  [ ] 4  [ ] 5
+
+Additional Observations:
+[Document any general observations about agent behavior, tone, helpfulness, etc.]
+
+================================================================================
+
+COMMON ISSUES CHECKLIST
+
+Mark any issues you encountered:
+
+Technical Issues:
+[ ] Agent couldn't find account
+[ ] Wrong information provided
+[ ] Long pauses or delays (>5 seconds) without explanation
+[ ] Call quality problems (static, cutting out)
+[ ] Agent repeated itself unnecessarily
+[ ] Agent got stuck in a loop
+[ ] Agent failed to use correct tools (e.g., used contracts instead of invoice_detail for equipment)
+
+Understanding Issues:
+[ ] Agent didn't understand my question
+[ ] Agent provided irrelevant answers
+[ ] Agent couldn't handle follow-up questions
+[ ] Agent interrupted me while speaking
+
+Communication Issues:
+[ ] Agent mispronounced "route" (said "root" instead of "ROWT")
+[ ] Agent read phone numbers too fast
+[ ] Agent included year in dates when not needed
+[ ] Agent had long silent pauses without explanation
+[ ] Agent said "You have no past due balance" when not asked
+[ ] Agent was too chatty or not concise enough
+
+Security Issues:
+[ ] Agent didn't verify identity with TWO identifiers
+[ ] Agent shared sensitive data without verification
+[ ] Agent read full card number (should only read last 4 digits)
+[ ] Agent shared internal IDs (customerId, deliveryId, etc.)
+
+Data Issues:
+[ ] Information doesn't match account records
+[ ] Agent said "I don't know" when it should know
+[ ] Agent provided outdated information
+[ ] Agent failed to provide bottle counts from invoice details
+[ ] Agent only provided invoice balances without detailed breakdowns
+
+================================================================================
+
+FINAL SIGN-OFF
+
+Testing Summary:
+
+Total Tests Completed: _____ of 13
+Tests Passed: _____
+Tests Failed: _____
+Tests Needing Revision: _____
+
+Critical Fixes Verification:
+
+Previous Issues - Please Verify These Are Fixed:
+[ ] Agent now provides bottle counts from invoice details (not just balances)
+[ ] Agent uses invoice_detail for equipment (not contracts tool)
+[ ] Agent pronounces "route" as "ROWT" (not "root")
+[ ] Agent omits year from dates unless different year
+[ ] Agent says "Let me check..." before long pauses
+[ ] Agent does NOT say "no past due balance" unless asked
+[ ] Agent follows identity verification process correctly
+[ ] Agent asks "What products are you interested in?" before onboarding
+
+Overall Assessment:
+
+Are you satisfied with the AI agent performance?
+
+[ ] Yes - Ready to go live
+[ ] No - Issues must be fixed first
+[ ] Partial - Minor adjustments needed
+
+Critical Issues (Must Fix Before Launch):
+[List any critical issues that must be resolved before going live]
+
+High Priority Issues (Should Fix Soon):
+[List high priority issues that should be addressed]
+
+Low Priority Issues (Nice to Have):
+[List minor issues or improvements that can be addressed later]
+
+Final Comments:
+[Any additional comments, observations, or recommendations]
+
+================================================================================
+
+TESTING NOTES
+
+Test Date: _______________
+Tester Name: _______________
+Test Duration: _______________
+Environment: Production / Staging / Development
+
+Additional Notes:
+[Any other relevant notes about the testing session]
+
+================================================================================
+
+END OF TESTING PROTOCOL
+
+Please complete all applicable tests and provide detailed feedback for any issues found. This will help ensure the AI agent meets all requirements before going live.
+

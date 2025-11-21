@@ -21,6 +21,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application code
 COPY src/ ./src/
+COPY scripts/ ./scripts/
+# Copy static directory (created with .gitkeep if empty)
 COPY static/ ./static/
 
 # Change ownership to non-root user
