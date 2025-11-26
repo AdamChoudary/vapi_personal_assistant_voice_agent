@@ -18,6 +18,40 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/admin/outbound", tags=["admin", "outbound"])
 
 
+@router.post("/update-status", dependencies=[Depends(verify_api_key)])
+async def manual_update_status(
+    row_index: int,
+    status: str,
+    call_id: str | None = None,
+    error: str | None = None
+):
+    """
+    Manually update Google Sheet status for a row.
+    Useful for testing and fixing stuck statuses.
+    """
+    try:
+        tracking_service = OutboundTrackingService()
+        tracking_service.update_row(
+            row_index=row_index,
+            status=status,
+            call_id=call_id,
+            error=error,
+            last_attempt_iso=datetime.utcnow().isoformat()
+        )
+        return {
+            "success": True,
+            "message": f"Status updated to '{status}' for row {row_index}",
+            "row_index": row_index,
+            "status": status
+        }
+    except Exception as e:
+        logger.error("manual_status_update_failed", row_index=row_index, error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update status: {str(e)}"
+        )
+
+
 class DeclinedPaymentCallRequest(BaseModel):
     """Request to initiate declined payment call."""
     customer_id: str = Field(..., description="Fontis customer ID")

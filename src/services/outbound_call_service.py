@@ -190,7 +190,14 @@ class OutboundCallService:
             overrides = dict(assistant_overrides)  # shallow copy to avoid mutation
             override_metadata = overrides.pop("metadata", None)
             if override_metadata:
+                # Update top-level metadata
                 assistant_config["metadata"].update({k: str(v) for k, v in override_metadata.items() if v not in (None, "")})
+                # CRITICAL: Also update assistantOverrides.metadata so assistant can access it
+                if "assistantOverrides" not in assistant_config:
+                    assistant_config["assistantOverrides"] = {}
+                if "metadata" not in assistant_config["assistantOverrides"]:
+                    assistant_config["assistantOverrides"]["metadata"] = {}
+                assistant_config["assistantOverrides"]["metadata"].update({k: str(v) for k, v in override_metadata.items() if v not in (None, "")})
             
             # If assistantOverrides has firstMessage, use it (allows dynamic greeting with name)
             assistant_overrides_dict = overrides.pop("assistantOverrides", {})
@@ -198,6 +205,11 @@ class OutboundCallService:
                 # Merge with existing assistantOverrides
                 if "assistantOverrides" not in assistant_config:
                     assistant_config["assistantOverrides"] = {}
+                # CRITICAL: If override has metadata, merge it (don't overwrite)
+                if "metadata" in assistant_overrides_dict:
+                    if "metadata" not in assistant_config["assistantOverrides"]:
+                        assistant_config["assistantOverrides"]["metadata"] = {}
+                    assistant_config["assistantOverrides"]["metadata"].update({k: str(v) for k, v in assistant_overrides_dict["metadata"].items() if v not in (None, "")})
                 # CRITICAL: If override has firstMessage, log it to verify the name
                 if "firstMessage" in assistant_overrides_dict:
                     logger.info(
@@ -205,7 +217,9 @@ class OutboundCallService:
                         first_message=assistant_overrides_dict["firstMessage"],
                         customer_name=customer_name
                     )
-                assistant_config["assistantOverrides"].update(assistant_overrides_dict)
+                # Update other fields (but preserve metadata we just merged)
+                other_overrides = {k: v for k, v in assistant_overrides_dict.items() if k != "metadata"}
+                assistant_config["assistantOverrides"].update(other_overrides)
             
             assistant_config.update(overrides)
         
@@ -233,12 +247,72 @@ class OutboundCallService:
             )
         
         # CRITICAL: Log the exact JSON payload being sent to Vapi
+        # Log both top-level metadata and assistantOverrides.metadata
+        assistant_overrides_meta = assistant_config.get("assistantOverrides", {}).get("metadata", {})
         logger.info(
             "sending_to_vapi",
             payload_metadata=assistant_config.get("metadata", {}),
+            assistant_overrides_metadata=assistant_overrides_meta,
+            declined_amount_in_metadata=assistant_config.get("metadata", {}).get("declined_amount"),
+            declined_amount_in_overrides=assistant_overrides_meta.get("declined_amount"),
+            call_amount_display=assistant_config.get("metadata", {}).get("call_amount_display"),
             call_type=call_type,
             customer_id=customer_data.get("customer_id")
         )
+        
+        # CRITICAL: Send SMS BEFORE initiating the call
+        # This ensures SMS arrives first, then the call comes
+        logger.info(
+            "sending_sms_before_call",
+            call_type=call_type,
+            customer_phone=customer_phone,
+            customer_id=customer_data.get("customer_id")
+        )
+        
+        if self.twilio_service.enabled:
+            try:
+                # Build SMS body from metadata
+                sms_body = self._build_sms_body_from_metadata(metadata)
+                
+                logger.info(
+                    "sms_before_call_prepared",
+                    customer_phone=customer_phone,
+                    sms_body_length=len(sms_body),
+                    sms_body_preview=sms_body[:150]
+                )
+                
+                sms_sent, sms_error = self.twilio_service.send_sms(customer_phone, sms_body)
+                
+                if sms_sent:
+                    logger.info(
+                        "sms_sent_before_call_SUCCESS",
+                        customer_phone=customer_phone,
+                        call_type=call_type
+                    )
+                else:
+                    logger.error(
+                        "sms_failed_before_call",
+                        customer_phone=customer_phone,
+                        error=sms_error,
+                        call_type=call_type
+                    )
+            except Exception as sms_exc:  # noqa: BLE001
+                logger.error(
+                    "sms_exception_before_call",
+                    customer_phone=customer_phone,
+                    error=str(sms_exc),
+                    exc_info=True
+                )
+                # Continue with call even if SMS fails
+        else:
+            logger.warning(
+                "twilio_not_enabled_before_call",
+                customer_phone=customer_phone,
+                call_type=call_type,
+                twilio_account_sid=bool(settings.twilio_account_sid),
+                twilio_auth_token=bool(settings.twilio_auth_token),
+                twilio_from_number=bool(settings.twilio_from_number)
+            )
         
         logger.info(
             "initiating_outbound_call",
@@ -294,6 +368,83 @@ class OutboundCallService:
                 )
             
             return response.json()
+    
+    def _build_sms_body_from_metadata(self, metadata: Dict[str, Any]) -> str:
+        """
+        Build SMS message body from metadata.
+        Explicitly states the call type/reason at the beginning.
+        """
+        customer_name = metadata.get("customer_name") or "there"
+        call_type = metadata.get("call_type", "")
+        
+        # For declined payment - EXPLICITLY STATE IT'S ABOUT DECLINED PAYMENT
+        if call_type == "declined_payment":
+            declined_amount = metadata.get("call_amount_display") or metadata.get("declined_amount", "")
+            if declined_amount:
+                # Clean amount if needed
+                amount_clean = declined_amount.replace("$", "").replace(",", "").strip()
+                try:
+                    amount_float = float(amount_clean)
+                    amount_formatted = f"${amount_float:.2f}"
+                except (ValueError, TypeError):
+                    amount_formatted = declined_amount if declined_amount.startswith("$") else f"${declined_amount}"
+                
+                return (
+                    f"Fontis Water - Declined Payment Alert: Hi {customer_name}, your payment of {amount_formatted} did not go through. "
+                    "Please update your payment method at fontiswater.com or call us at (678) 303-4022. Thank you!"
+                )
+            else:
+                return (
+                    f"Fontis Water - Declined Payment Alert: Hi {customer_name}, your recent payment did not go through. "
+                    "Please update your payment method at fontiswater.com or call us at (678) 303-4022. Thank you!"
+                )
+        
+        # For collections - EXPLICITLY STATE IT'S ABOUT DUE PAYMENT
+        elif call_type == "collections":
+            past_due = metadata.get("call_amount_display") or metadata.get("past_due_amount", "")
+            if past_due:
+                amount_clean = past_due.replace("$", "").replace(",", "").strip()
+                try:
+                    amount_float = float(amount_clean)
+                    amount_formatted = f"${amount_float:.2f}"
+                except (ValueError, TypeError):
+                    amount_formatted = past_due if past_due.startswith("$") else f"${past_due}"
+                
+                return (
+                    f"Fontis Water - Past Due Payment: Hi {customer_name}, your account has a past due balance of {amount_formatted}. "
+                    "Please make a payment at fontiswater.com or call us at (678) 303-4022. Thank you!"
+                )
+            else:
+                return (
+                    f"Fontis Water - Past Due Payment: Hi {customer_name}, your account has a past due balance. "
+                    "Please make a payment at fontiswater.com or call us at (678) 303-4022. Thank you!"
+                )
+        
+        # For delivery reminder - EXPLICITLY STATE IT'S ABOUT DELIVERY REMINDER
+        elif call_type == "delivery_reminder":
+            delivery_date = metadata.get("call_delivery_date") or metadata.get("delivery_date", "")
+            if delivery_date:
+                try:
+                    date_obj = datetime.strptime(delivery_date, "%Y-%m-%d")
+                    formatted_date = date_obj.strftime("%B %d")
+                except:
+                    formatted_date = delivery_date
+                
+                return (
+                    f"Fontis Water - Delivery Reminder: Hi {customer_name}, your next delivery is scheduled for {formatted_date}. "
+                    "Please have your empty bottles ready for pickup. To reschedule, call us at (678) 303-4022. Thank you!"
+                )
+            else:
+                return (
+                    f"Fontis Water - Delivery Reminder: Hi {customer_name}, you have an upcoming delivery scheduled. "
+                    "Please have your empty bottles ready for pickup. To reschedule, call us at (678) 303-4022. Thank you!"
+                )
+        
+        # Fallback
+        return (
+            f"Fontis Water: Hi {customer_name}, we have an important update regarding your account. "
+            "Please call us at (678) 303-4022 if you have any questions. Thank you!"
+        )
     
     async def send_sms(
         self,

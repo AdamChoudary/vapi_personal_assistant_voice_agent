@@ -257,76 +257,8 @@ def build_first_message(call_type: str, customer_name: str | None, amount: str |
 
 
 def build_custom_message(call_type: str, customer_name: str | None, amount: str | None, delivery_date: str | None) -> str:
-    """Build the complete, ready-to-speak message using real data from Google Sheets.
-    This message will be delivered exactly as written - no modifications."""
-    if call_type == "declined_payment":
-        if amount:
-            return (
-                f"Your recent payment of {amount} did not go through. "
-                "This can happen sometimes - maybe your card expired, or there was a hiccup with your bank. "
-                "I wanted to reach out and help you get that updated so we don't have any service interruptions. "
-                "You can update your payment information on our website at fontiswater.com, or if you'd like, "
-                "I can transfer you to our billing team and they can help you update it right over the phone. "
-                "What would work better for you?"
-            )
-        return (
-            "Your recent payment did not go through. "
-            "This can happen sometimes - maybe your card expired, or there was a hiccup with your bank. "
-            "I wanted to reach out and help you get that updated so we don't have any service interruptions. "
-            "You can update your payment information on our website at fontiswater.com, or if you'd like, "
-            "I can transfer you to our billing team and they can help you update it right over the phone. "
-            "What would work better for you?"
-        )
-    if call_type == "collections":
-        if amount:
-            return (
-                f"Your account has a past due balance of {amount}. "
-                "I totally understand how these things can slip your mind - life gets busy, you know? "
-                "I just wanted to call and see how we can work together to get this resolved. "
-                "You can take care of the payment on our website at fontiswater.com, or if you'd prefer, "
-                "you can call our billing team at (678) 303-4022 and they can help you out. "
-                "We're really here to help, so whatever works best for you. "
-                "Would you like to take care of that today, or would you like to discuss some payment options?"
-            )
-        return (
-            "Your account has a past due balance. "
-            "I totally understand how these things can slip your mind - life gets busy, you know? "
-            "I just wanted to call and see how we can work together to get this resolved. "
-            "You can take care of the payment on our website at fontiswater.com, or if you'd prefer, "
-            "you can call our billing team at (678) 303-4022 and they can help you out. "
-            "We're really here to help, so whatever works best for you. "
-            "Would you like to take care of that today, or would you like to discuss some payment options?"
-        )
-    if call_type == "delivery_reminder":
-        if delivery_date:
-            # Format delivery date naturally
-            try:
-                from datetime import datetime
-                date_obj = datetime.strptime(delivery_date, "%Y-%m-%d")
-                formatted_date = date_obj.strftime("%B %d")
-                return (
-                    f"Your next delivery is scheduled for {formatted_date}. "
-                    "I just wanted to give you a heads up so you can have your empty bottles ready "
-                    "for our driver to pick up. If you need to reschedule or have any questions at all, "
-                    "just give us a call at (678) 303-4022. "
-                    "Is there anything specific you'd like me to note for the delivery, or do you have any questions I can help with?"
-                )
-            except:
-                return (
-                    f"Your next delivery is scheduled for {delivery_date}. "
-                    "I just wanted to give you a heads up so you can have your empty bottles ready "
-                    "for our driver to pick up. If you need to reschedule or have any questions at all, "
-                    "just give us a call at (678) 303-4022. "
-                    "Is there anything specific you'd like me to note for the delivery, or do you have any questions I can help with?"
-                )
-        return (
-            "You have an upcoming delivery scheduled. "
-            "I just wanted to give you a heads up so you can have your empty bottles ready "
-            "for our driver to pick up. If you need to reschedule or have any questions at all, "
-            "just give us a call at (678) 303-4022. "
-            "Is there anything specific you'd like me to note for the delivery, or do you have any questions I can help with?"
-        )
-    return "We have an important update regarding your Fontis Water account. How can I help you today?"
+    """Build a simple message that ONLY mentions SMS will be received."""
+    return "You'll receive a text message on your phone with all the details."
 
 
 def build_assistant_overrides(
@@ -357,23 +289,34 @@ def build_assistant_overrides(
 
     if amount_pretty:
         metadata_overrides["call_amount_display"] = amount_pretty
-        # Also add raw amounts for declined payment and collections - format to 2 decimals
+        # CRITICAL: Use the amount_formatted_str from customer_data (already correctly formatted)
+        # This ensures we use the exact amount read from the correct column
         if call_type == "declined_payment":
-            # Extract numeric value and format to 2 decimals: "$50.00" -> "50.00"
-            amount_clean = amount_pretty.replace("$", "").replace(",", "")
-            try:
-                amount_float = float(amount_clean)
-                metadata_overrides["declined_amount"] = f"{amount_float:.2f}"
-            except (ValueError, TypeError):
-                metadata_overrides["declined_amount"] = amount_clean
+            # Use the declined_amount from customer_data (already formatted to 2 decimals)
+            declined_amount = customer_data.get("declined_amount")
+            if declined_amount:
+                metadata_overrides["declined_amount"] = declined_amount
+            else:
+                # Fallback: extract from amount_pretty
+                amount_clean = amount_pretty.replace("$", "").replace(",", "").strip()
+                try:
+                    amount_float = float(amount_clean)
+                    metadata_overrides["declined_amount"] = f"{amount_float:.2f}"
+                except (ValueError, TypeError):
+                    metadata_overrides["declined_amount"] = amount_clean
         elif call_type == "collections":
-            # Extract numeric value and format to 2 decimals: "$75.50" -> "75.50"
-            amount_clean = amount_pretty.replace("$", "").replace(",", "")
-            try:
-                amount_float = float(amount_clean)
-                metadata_overrides["past_due_amount"] = f"{amount_float:.2f}"
-            except (ValueError, TypeError):
-                metadata_overrides["past_due_amount"] = amount_clean
+            # Use the past_due_amount from customer_data (already formatted to 2 decimals)
+            past_due_amount = customer_data.get("past_due_amount")
+            if past_due_amount:
+                metadata_overrides["past_due_amount"] = past_due_amount
+            else:
+                # Fallback: extract from amount_pretty
+                amount_clean = amount_pretty.replace("$", "").replace(",", "").strip()
+                try:
+                    amount_float = float(amount_clean)
+                    metadata_overrides["past_due_amount"] = f"{amount_float:.2f}"
+                except (ValueError, TypeError):
+                    metadata_overrides["past_due_amount"] = amount_clean
     if delivery_date:
         metadata_overrides["call_delivery_date"] = delivery_date
         metadata_overrides["delivery_date"] = delivery_date
@@ -415,10 +358,24 @@ async def handle_row(
     customer_id = resolve_value(row, DATA_HEADERS["customer_id"], "id")
     first_name = resolve_value(row, DATA_HEADERS["first_name"], "shipping_first_name")
     last_name = resolve_value(row, DATA_HEADERS["last_name"], "shipping_last_name")
-    amount_raw = normalize_amount(resolve_value(row, DATA_HEADERS["amount"], "base_amount", "amount_authorized"))
+    # CRITICAL: Determine call type FIRST to know which amount column to read
+    call_type = determine_call_type(row)
+    
+    # Read amount from appropriate column based on call type
+    # For declined_payment: read the declined amount (not account balance)
+    # For collections: read the past due amount (not account balance)
+    if call_type == "declined_payment":
+        # Try declined_amount column first, then fall back to amount
+        amount_raw = normalize_amount(resolve_value(row, "declined_amount", DATA_HEADERS["amount"], "base_amount", "amount_authorized"))
+    elif call_type == "collections":
+        # Try past_due_amount column first, then fall back to amount
+        amount_raw = normalize_amount(resolve_value(row, "past_due_amount", "past_due", DATA_HEADERS["amount"], "base_amount", "amount_authorized"))
+    else:
+        # For delivery reminders, amount might not be relevant
+        amount_raw = normalize_amount(resolve_value(row, DATA_HEADERS["amount"], "base_amount", "amount_authorized"))
+    
     amount_value = to_float(amount_raw)
     delivery_date = resolve_value(row, DATA_HEADERS["delivery_date"], "next_delivery_date")
-    call_type = determine_call_type(row)
 
     if not phone or not customer_id:
         logger.warning("Row %d skipped: missing phone or customer_id", row_index)
@@ -462,13 +419,15 @@ async def handle_row(
     }
     
     # Set the correct amount field based on call type
+    # CRITICAL: Only set the amount field that matches the call type
+    # Do NOT set account_balance to the same value - this causes confusion
     if amount_formatted_str:
         if call_type == "declined_payment":
             customer_data["declined_amount"] = amount_formatted_str
+            # Do NOT set account_balance - it might be different and would confuse the assistant
         elif call_type == "collections":
             customer_data["past_due_amount"] = amount_formatted_str
-        # Also set account_balance for reference (but agent should use declined_amount or past_due_amount)
-        customer_data["account_balance"] = amount_formatted_str
+            # Do NOT set account_balance - it might be different and would confuse the assistant
 
     # Format amount for display (with $ and commas) - use the formatted float
     if amount_formatted is not None:
@@ -483,14 +442,32 @@ async def handle_row(
         env=env,
     )
 
+    # Log which columns were found for debugging
+    amount_source = "unknown"
+    if call_type == "declined_payment":
+        if row.get("declined_amount"):
+            amount_source = "declined_amount column"
+        elif row.get(DATA_HEADERS["amount"]):
+            amount_source = f"{DATA_HEADERS['amount']} column"
+        elif row.get("base_amount"):
+            amount_source = "base_amount column"
+    elif call_type == "collections":
+        if row.get("past_due_amount"):
+            amount_source = "past_due_amount column"
+        elif row.get("past_due"):
+            amount_source = "past_due column"
+        elif row.get(DATA_HEADERS["amount"]):
+            amount_source = f"{DATA_HEADERS['amount']} column"
+    
     logger.info(
-        "Row %d: initiating %s call -> customer_id=%s phone=%s amount=%s (formatted=%s)",
+        "Row %d: initiating %s call -> customer_id=%s phone=%s amount=%s (formatted=%s, source=%s)",
         row_index,
         call_type,
         customer_id,
         phone,
         amount_raw or "N/A",
         amount_pretty or "N/A",
+        amount_source,
     )
     logger.info(
         "Row %d: outbound call context metadata=%s first_message=%s",

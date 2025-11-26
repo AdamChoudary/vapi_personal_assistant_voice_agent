@@ -21,6 +21,7 @@ from src.core.exceptions import FontisAPIError
 from src.schemas.vapi import VapiFunctionCall, VapiWebhookEvent
 from src.services.outbound_tracking_service import OutboundTrackingService
 from src.services.twilio_service import TwilioService
+from src.config import settings
 
 # Import all tool handlers
 from src.api.tools import customer, delivery, billing, contracts, routes, onboarding
@@ -120,11 +121,33 @@ async def handle_vapi_webhook(
         call_id = event.call_id if hasattr(event, 'call_id') else call_payload.get("id")
         
         if call_id:
-            # Store metadata from call-start event so we can use it in call-end
-            metadata = call_payload.get("metadata") or {}
+            # CRITICAL: Extract metadata from ALL possible locations in call-start webhook
+            # Vapi may send metadata in different places
+            metadata = {}
+            
+            # Try call payload metadata first
+            if call_payload.get("metadata"):
+                if isinstance(call_payload.get("metadata"), dict):
+                    metadata.update(call_payload.get("metadata"))
+            
+            # Try event-level metadata
             if hasattr(event, 'metadata') and event.metadata:
                 if isinstance(event.metadata, dict):
                     metadata.update(event.metadata)
+            
+            # Try assistantOverrides.metadata (if Vapi includes it)
+            if call_payload.get("assistantOverrides", {}).get("metadata"):
+                if isinstance(call_payload.get("assistantOverrides", {}).get("metadata"), dict):
+                    metadata.update(call_payload.get("assistantOverrides", {}).get("metadata"))
+            
+            # Try raw body metadata (fallback)
+            if isinstance(body, dict):
+                if body.get("metadata"):
+                    if isinstance(body.get("metadata"), dict):
+                        metadata.update(body.get("metadata"))
+                if body.get("call", {}).get("metadata"):
+                    if isinstance(body.get("call", {}).get("metadata"), dict):
+                        metadata.update(body.get("call", {}).get("metadata"))
             
             store_call_context(call_id, "started_at", event.timestamp)
             if metadata:
@@ -134,7 +157,19 @@ async def handle_vapi_webhook(
                 "call_started",
                 call_id=call_id,
                 has_metadata=bool(metadata),
-                metadata_keys=list(metadata.keys()) if metadata else []
+                metadata_keys=list(metadata.keys()) if metadata else [],
+                metadata_sample=dict(list(metadata.items())[:3]) if metadata else None,  # Log first 3 items
+                call_payload_keys=list(call_payload.keys()),
+                event_has_metadata=hasattr(event, 'metadata') and bool(event.metadata)
+            )
+            
+            # CRITICAL: Send SMS immediately when call starts (not after call ends)
+            # Always try to send SMS - even if metadata is empty, we can extract phone from call_payload
+            background_tasks.add_task(
+                send_sms_on_call_start,
+                call_id,
+                call_payload,
+                metadata
             )
         return {"success": True, "message": "Call started"}
     
@@ -169,15 +204,20 @@ async def handle_vapi_webhook(
         
         timestamp = event.timestamp
 
+        # CRITICAL: Log FULL webhook payload for debugging
         logger.info(
-            "call_end_received",
+            "call_end_received_FULL",
             call_id=call_id,
             call_status=call_payload.get("status"),
             hang_reason=call_payload.get("hangReason"),
             has_metadata=bool(metadata),
             metadata_keys=list(metadata.keys()) if metadata else [],
+            metadata_full=str(metadata)[:2000] if metadata else "{}",  # Log full metadata
             call_payload_keys=list(call_payload.keys()) if call_payload else [],
-            event_keys=list(event_dict.keys()) if event_dict else []
+            call_payload_full=str(call_payload)[:2000] if call_payload else "{}",  # Log full payload
+            event_keys=list(event_dict.keys()) if event_dict else [],
+            event_full=str(event_dict)[:1000] if event_dict else "{}",  # Log full event
+            raw_body_keys=list(body.keys()) if isinstance(body, dict) else "not_dict"
         )
 
         background_tasks.add_task(
@@ -453,6 +493,103 @@ async def route_function_call(
 # Individual tool handlers (simplified wrappers around your existing tools)
 
 
+async def send_sms_on_call_start(
+    call_id: str | None,
+    call_payload: dict[str, Any],
+    metadata: dict[str, Any]
+) -> None:
+    """
+    Send SMS immediately when call starts.
+    SMS contains the actual data/details from metadata.
+    """
+    logger.info(
+        "send_sms_on_call_start_START",
+        call_id=call_id,
+        has_metadata=bool(metadata),
+        metadata_keys=list(metadata.keys()) if metadata else [],
+        call_payload_customer=call_payload.get("customer"),
+        call_payload_to=call_payload.get("to")
+    )
+    
+    twilio = TwilioService()
+    
+    # CRITICAL: Check if Twilio is enabled FIRST
+    if not twilio.enabled:
+        logger.error(
+            "twilio_not_enabled_for_start_sms",
+            call_id=call_id,
+            twilio_account_sid=bool(settings.twilio_account_sid),
+            twilio_auth_token=bool(settings.twilio_auth_token),
+            twilio_from_number=bool(settings.twilio_from_number)
+        )
+        return
+    
+    # Get phone number from call payload (the number we called)
+    customer_phone = (
+        call_payload.get("customer", {}).get("number")
+        or call_payload.get("to")
+        or metadata.get("customer_phone")
+        or metadata.get("phone_number")
+    )
+    
+    if not customer_phone:
+        logger.error(
+            "no_phone_for_sms_on_start",
+            call_id=call_id,
+            call_payload_keys=list(call_payload.keys()),
+            metadata_keys=list(metadata.keys()),
+            call_payload_customer=call_payload.get("customer"),
+            call_payload_to=call_payload.get("to")
+        )
+        return
+    
+    # Normalize phone number
+    customer_phone = normalize_phone_for_sms(customer_phone)
+    
+    try:
+        # Build SMS body using metadata (contains the actual data)
+        sms_body = build_sms_body(metadata, is_completed=False)
+        
+        logger.info(
+            "sending_sms_on_call_start",
+            customer_phone=customer_phone,
+            call_id=call_id,
+            sms_body_length=len(sms_body),
+            sms_body_preview=sms_body[:150],  # First 150 chars
+            has_custom_message=bool(metadata.get("custom_message_context")),
+            declined_amount=metadata.get("declined_amount"),
+            call_amount_display=metadata.get("call_amount_display"),
+            past_due_amount=metadata.get("past_due_amount")
+        )
+        
+        sms_sent, sms_error = twilio.send_sms(customer_phone, sms_body)
+        
+        if sms_sent:
+            logger.info(
+                "sms_sent_on_call_start_SUCCESS",
+                customer_phone=customer_phone,
+                call_id=call_id,
+                sms_body_length=len(sms_body)
+            )
+        else:
+            logger.error(
+                "sms_failed_on_call_start",
+                customer_phone=customer_phone,
+                call_id=call_id,
+                error=sms_error,
+                sms_body_preview=sms_body[:100]
+            )
+    except Exception as sms_exc:  # noqa: BLE001
+        logger.error(
+            "sms_exception_on_call_start",
+            customer_phone=customer_phone,
+            call_id=call_id,
+            error=str(sms_exc),
+            error_type=type(sms_exc).__name__,
+            exc_info=True
+        )
+
+
 def process_call_end_event(
     call_id: str | None,
     call_payload: dict[str, Any],
@@ -548,7 +685,7 @@ def process_call_end_event(
 
         call_status = (call_payload.get("status") or "").lower()
         hang_reason = (call_payload.get("hangReason") or "").lower()
-        
+
         # Also check for status in different formats
         if not call_status:
             call_status = (call_payload.get("callStatus") or "").lower()
@@ -581,7 +718,7 @@ def process_call_end_event(
             else:
                 is_completed = True
 
-        logger.info(
+            logger.info(
             "call_status_determined",
             call_id=call_id,
             call_status=call_status,
@@ -614,12 +751,38 @@ def process_call_end_event(
             sheet_status = "No Answer"
         
         # CRITICAL: Send SMS for ALL calls by default (both answered and no-answer)
-        twilio = TwilioService()
-        customer_phone = metadata.get("customer_phone") or call_payload.get("customer", {}).get("number")
+            twilio = TwilioService()
+        # CRITICAL: Get phone number from the call payload - this is the number the call was made TO
+        # Priority: 1) call_payload.customer.number (the number we called), 2) call_payload.to, 3) metadata
+        customer_phone = (
+            call_payload.get("customer", {}).get("number")  # PRIMARY: The number we called
+            or call_payload.get("to")  # FALLBACK: The "to" field in call payload
+            or metadata.get("customer_phone")  # FALLBACK: From metadata
+            or metadata.get("phone_number")  # FALLBACK: Alternative metadata field
+        )
+        
+        logger.info(
+            "sms_preparation",
+            customer_phone_from_metadata=metadata.get("customer_phone"),
+            customer_phone_from_phone_number=metadata.get("phone_number"),
+            customer_phone_from_payload=call_payload.get("customer", {}).get("number"),
+            customer_phone_from_to=call_payload.get("to"),
+            final_customer_phone=customer_phone,
+            twilio_enabled=twilio.enabled,
+            call_id=call_id
+        )
         
         if customer_phone:
             # Normalize phone number to E.164 format for Twilio
+            original_phone = customer_phone
             customer_phone = normalize_phone_for_sms(customer_phone)
+            
+            if customer_phone != original_phone:
+                logger.info(
+                    "phone_normalized",
+                    original=original_phone,
+                    normalized=customer_phone
+                )
             
             if twilio.enabled:
                 try:
@@ -734,110 +897,118 @@ def normalize_phone_for_sms(phone: str) -> str:
     # Remove all non-digit characters except +
     cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
     
-    # If it doesn't start with +, assume US number and add +1
-    if not cleaned.startswith("+"):
-        # Remove leading 1 if present
-        if cleaned.startswith("1") and len(cleaned) == 11:
-            cleaned = cleaned[1:]
-        cleaned = f"+1{cleaned}"
+    # If it already starts with +, return as-is (already in E.164 format)
+    if cleaned.startswith("+"):
+        return cleaned
     
-    return cleaned
+    # If it doesn't start with +, determine country code
+    # Check if it's a US number (10 digits or 11 digits starting with 1)
+    if len(cleaned) == 10:
+        # US number without country code
+        return f"+1{cleaned}"
+    elif len(cleaned) == 11 and cleaned.startswith("1"):
+        # US number with leading 1
+        return f"+{cleaned}"
+    elif len(cleaned) > 10:
+        # International number - try to detect country code
+        # Common patterns: Pakistan (+92), etc.
+        # For now, if it's 10+ digits and doesn't start with 1, assume it needs country code
+        # But we can't auto-detect, so log a warning
+        logger = structlog.get_logger(__name__)
+        logger.warning(
+            "phone_number_may_need_country_code",
+            original_phone=phone,
+            cleaned=cleaned,
+            length=len(cleaned)
+        )
+        # Return as-is and let Twilio handle it (Twilio will reject if invalid)
+        return f"+{cleaned}"
+    else:
+        # Default to US if we can't determine
+        return f"+1{cleaned}"
 
 
 def build_sms_body(metadata: dict[str, Any], is_completed: bool = False) -> str:
     """
     Build SMS message body based on call outcome and metadata.
+    Explicitly states the call type/reason at the beginning.
     
     Args:
         metadata: Call metadata with customer info, call type, etc.
-        is_completed: True if call was answered/completed, False if no answer
+        is_completed: True if call was answered/completed, False if no answer (not used for call-start SMS)
     """
     customer_name = metadata.get("customer_name") or "there"
-    sms_reason = metadata.get("sms_reason") or "we have an important update regarding your Fontis Water account"
-    call_type_label = metadata.get("call_type_label") or "account"
     call_type = metadata.get("call_type", "")
-
-    # Different messages based on call outcome
-    if is_completed:
-        # Call was answered - send follow-up SMS with key info
-        if call_type == "declined_payment":
-            declined_amount = metadata.get("declined_amount") or metadata.get("call_amount_display", "")
-            if declined_amount:
-                message = (
-                    f"Hi {customer_name}, thank you for speaking with us today. "
-                    f"Just a reminder: your payment of ${declined_amount} did not go through. "
-                    "You can update your payment information at fontiswater.com or call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-            else:
-                message = (
-                    f"Hi {customer_name}, thank you for speaking with us today. "
-                    "Just a reminder: your recent payment did not go through. "
-                    "You can update your payment information at fontiswater.com or call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-        elif call_type == "collections":
-            past_due = metadata.get("past_due_amount") or metadata.get("call_amount_display", "")
-            if past_due:
-                message = (
-                    f"Hi {customer_name}, thank you for speaking with us today. "
-                    f"Just a reminder: your account has a past due balance of ${past_due}. "
-                    "You can make a payment at fontiswater.com or call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-            else:
-                message = (
-                    f"Hi {customer_name}, thank you for speaking with us today. "
-                    "Just a reminder: your account has a past due balance. "
-                    "You can make a payment at fontiswater.com or call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-        elif call_type == "delivery_reminder":
-            delivery_date = metadata.get("delivery_date") or metadata.get("call_delivery_date", "")
-            if delivery_date:
-                message = (
-                    f"Hi {customer_name}, thank you for speaking with us today. "
-                    f"Just a reminder: your next delivery is scheduled for {delivery_date}. "
-                    "Please have your empty bottles ready. If you need to reschedule, call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-            else:
-                message = (
-                    f"Hi {customer_name}, thank you for speaking with us today. "
-                    "Just a reminder: you have an upcoming delivery scheduled. "
-                    "Please have your empty bottles ready. If you need to reschedule, call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-        else:
-            # Generic follow-up for answered calls
-            message = (
-                f"Hi {customer_name}, thank you for speaking with us today about {sms_reason}. "
-                "If you have any questions, please call us at (678) 303-4022. Thank you!"
+    
+    # For declined payment - EXPLICITLY STATE IT'S ABOUT DECLINED PAYMENT
+    if call_type == "declined_payment":
+        declined_amount = metadata.get("call_amount_display") or metadata.get("declined_amount", "")
+        if declined_amount:
+            # Clean amount if needed
+            amount_clean = declined_amount.replace("$", "").replace(",", "").strip()
+            try:
+                amount_float = float(amount_clean)
+                amount_formatted = f"${amount_float:.2f}"
+            except (ValueError, TypeError):
+                amount_formatted = declined_amount if declined_amount.startswith("$") else f"${declined_amount}"
+            
+            return (
+                f"Fontis Water - Declined Payment Alert: Hi {customer_name}, your payment of {amount_formatted} did not go through. "
+                "Please update your payment method at fontiswater.com or call us at (678) 303-4022. Thank you!"
             )
-    else:
-        # Call was not answered - send initial message
-        if "delivery" in (call_type_label or "").lower() or call_type == "delivery_reminder":
-            delivery_date = metadata.get("delivery_date") or metadata.get("call_delivery_date", "")
-            if delivery_date:
-                message = (
-                    f"Hi {customer_name}, Fontis Water here. We tried calling about your delivery scheduled for {delivery_date}. "
-                    "Please have your empty bottles ready. If you need to reschedule, call us at (678) 303-4022. "
-                    "Thank you!"
-                )
-            else:
-                message = (
-                    f"Hi {customer_name}, Fontis Water here. We tried calling about your upcoming delivery. "
-                    "Please have your empty bottles ready. If you need to reschedule, call us at (678) 303-4022. "
-                    "Thank you!"
-                )
         else:
-            message = (
-                f"Hi {customer_name}, this is Fontis Water. We tried calling about {sms_reason}. "
-                "Please contact our team at (678) 303-4022 at your earliest convenience so we can help you. "
-                "Thank you!"
+            return (
+                f"Fontis Water - Declined Payment Alert: Hi {customer_name}, your recent payment did not go through. "
+                "Please update your payment method at fontiswater.com or call us at (678) 303-4022. Thank you!"
             )
-
-    return message
+    
+    # For collections - EXPLICITLY STATE IT'S ABOUT DUE PAYMENT
+    elif call_type == "collections":
+        past_due = metadata.get("call_amount_display") or metadata.get("past_due_amount", "")
+        if past_due:
+            amount_clean = past_due.replace("$", "").replace(",", "").strip()
+            try:
+                amount_float = float(amount_clean)
+                amount_formatted = f"${amount_float:.2f}"
+            except (ValueError, TypeError):
+                amount_formatted = past_due if past_due.startswith("$") else f"${past_due}"
+            
+            return (
+                f"Fontis Water - Past Due Payment: Hi {customer_name}, your account has a past due balance of {amount_formatted}. "
+                "Please make a payment at fontiswater.com or call us at (678) 303-4022. Thank you!"
+            )
+        else:
+            return (
+                f"Fontis Water - Past Due Payment: Hi {customer_name}, your account has a past due balance. "
+                "Please make a payment at fontiswater.com or call us at (678) 303-4022. Thank you!"
+            )
+    
+    # For delivery reminder - EXPLICITLY STATE IT'S ABOUT DELIVERY REMINDER
+    elif call_type == "delivery_reminder":
+        delivery_date = metadata.get("call_delivery_date") or metadata.get("delivery_date", "")
+        if delivery_date:
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(delivery_date, "%Y-%m-%d")
+                formatted_date = date_obj.strftime("%B %d")
+            except:
+                formatted_date = delivery_date
+            
+            return (
+                f"Fontis Water - Delivery Reminder: Hi {customer_name}, your next delivery is scheduled for {formatted_date}. "
+                "Please have your empty bottles ready for pickup. To reschedule, call us at (678) 303-4022. Thank you!"
+            )
+        else:
+            return (
+                f"Fontis Water - Delivery Reminder: Hi {customer_name}, you have an upcoming delivery scheduled. "
+                "Please have your empty bottles ready for pickup. To reschedule, call us at (678) 303-4022. Thank you!"
+            )
+    
+    # Fallback
+    return (
+        f"Fontis Water: Hi {customer_name}, we have an important update regarding your account. "
+        "Please call us at (678) 303-4022 if you have any questions. Thank you!"
+    )
 
 
 >>>>>>> 7f5d6f0 (Sure! Pl)
