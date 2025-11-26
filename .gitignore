@@ -80,3 +80,4 @@ htmlcov/
 # UV
 .uv/
 uv.lock
+Google-credentials.json
