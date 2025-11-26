@@ -1011,7 +1011,6 @@ def build_sms_body(metadata: dict[str, Any], is_completed: bool = False) -> str:
     )
 
 
->>>>>>> 7f5d6f0 (Sure! Pl)
 async def customer_search_handler(params, fontis: FontisClient) -> dict:
     """Handle customer_search function call."""
     response = await fontis.search_customers(
